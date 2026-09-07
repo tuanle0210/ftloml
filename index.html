@@ -160,6 +160,13 @@
   #btn-prev img, #btn-next img { width: 44px; height: 44px; }
   #btn-play img { width: 60px; height: 60px; }
 
+  .soundwave {
+    display: block;
+    width: 100%;
+    height: 48px;
+    margin-top: 16px;
+  }
+
   .progress-row {
     display: flex;
     align-items: center;
@@ -231,9 +238,9 @@
   /* ---------- Nút "Nghe & Tải về" ---------- */
   .cta-static {
     display: block;
-    width: 100%;
-    margin-top: 18px;
-    padding: 14px;
+    width: fit-content;
+    margin: 18px auto 0 auto;
+    padding: 14px 28px;
     border: none;
     border-radius: 14px;
     background: var(--accent);
@@ -253,6 +260,7 @@
   .streaming a {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 12px;
     width: 100%;
     padding: 14px 16px;
@@ -260,7 +268,16 @@
     text-decoration: none;
     font-weight: 600;
     font-size: 0.95rem;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+    background: var(--card-bg);
+    border: 2px solid var(--accent);
+    color: var(--accent);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
+  }
+  .streaming a:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 2px;
   }
   .streaming a img {
     width: 22px;
@@ -326,6 +343,8 @@
       </button>
     </div>
 
+    <canvas id="soundwave" class="soundwave" aria-hidden="true"></canvas>
+
     <div class="progress-row">
       <span class="time-label" id="current-time">0:00</span>
       <input type="range" id="progress" min="0" max="1000" value="0" step="1">
@@ -335,7 +354,7 @@
     <div class="track-grid" id="track-grid"></div>
   </div>
 
-  <button class="cta-static" id="scroll-cta">Nghe &amp; Tải về</button>
+  <button class="cta-static" id="scroll-cta">Stream &amp; Download</button>
 
   <div class="streaming" id="streaming-list"></div>
 
@@ -373,7 +392,10 @@ const CONFIG = {
   },
 
   // ---- Các nút Streaming (thêm platform mới chỉ cần thêm 1 dòng ở đây) ----
-  // color / textColor: màu nền và màu chữ/icon riêng của từng nút.
+  // Lưu ý: hiện các nút đang dùng chung 1 kiểu trắng/viền hồng theo theme,
+  // nên "color" và "textColor" bên dưới TẠM THỜI KHÔNG ĐƯỢC DÙNG.
+  // Giữ lại các trường này để sau này nếu muốn quay lại màu thương hiệu riêng
+  // cho từng nút thì chỉ cần báo Claude bật lại, không cần gõ tay từ đầu.
   // icon: đường dẫn icon (để trống "" nếu muốn ẩn icon).
   // url: ĐIỀN LINK THẬT của bài hát/album trên từng nền tảng.
   streaming: [
@@ -400,7 +422,7 @@ const CONFIG = {
     },
     {
       name: "YouTube Music",
-      color: "#FF0000",
+      color: "#B31217",
       textColor: "#ffffff",
       icon: "assets/icons/youtube-music.svg",
       url: "https://music.youtube.com/PASTE-LINK-THAT-VAO-DAY",
@@ -476,9 +498,87 @@ function formatSeconds(sec) {
 
 const trackStartSeconds = CONFIG.audio.trackStarts.map(parseTimeToSeconds);
 
-// ---------- Audio ----------
+// ---------- Soundwave (nhảy thật theo âm thanh đang phát) ----------
+const soundwaveCanvas = document.getElementById('soundwave');
+const swCtx = soundwaveCanvas.getContext('2d');
+
+const SW_BAR_COUNT = 32; // = fftSize/2 bên dưới, phải khớp nhau
+const swIdleValues = new Array(SW_BAR_COUNT).fill(6);
+
+let audioCtx = null;
+let analyser = null;
+let swDataArray = null;
+let audioGraphReady = false;
+
+function ensureAudioGraph() {
+  if (audioGraphReady) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const sourceNode = audioCtx.createMediaElementSource(audio);
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 64; // -> frequencyBinCount = 32, khớp SW_BAR_COUNT
+  analyser.smoothingTimeConstant = 0.75;
+  swDataArray = new Uint8Array(analyser.frequencyBinCount);
+  sourceNode.connect(analyser);
+  analyser.connect(audioCtx.destination); // bắt buộc, nếu không nhạc sẽ câm
+  audioGraphReady = true;
+}
+
+function resizeSoundwave() {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = soundwaveCanvas.getBoundingClientRect();
+  soundwaveCanvas.width = Math.max(1, rect.width * dpr);
+  soundwaveCanvas.height = Math.max(1, rect.height * dpr);
+  swCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', resizeSoundwave);
+resizeSoundwave();
+
+function swRoundRect(ctx, x, y, w, h, r) {
+  const rr = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.closePath();
+}
+
+function getAccentColor() {
+  return getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#df4a5e';
+}
+
+function drawSoundwave(values) {
+  const rect = soundwaveCanvas.getBoundingClientRect();
+  const w = rect.width, h = rect.height;
+  swCtx.clearRect(0, 0, w, h);
+  const gap = 3;
+  const barWidth = (w - gap * (values.length - 1)) / values.length;
+  swCtx.fillStyle = getAccentColor();
+  for (let i = 0; i < values.length; i++) {
+    const v = values[i] / 255;
+    const barH = Math.max(3, v * h);
+    const x = i * (barWidth + gap);
+    const y = (h - barH) / 2;
+    swRoundRect(swCtx, x, y, barWidth, barH, 3);
+    swCtx.fill();
+  }
+}
+
+function soundwaveLoop() {
+  if (!audio.paused && analyser) {
+    analyser.getByteFrequencyData(swDataArray);
+    drawSoundwave(swDataArray);
+  } else {
+    drawSoundwave(swIdleValues);
+  }
+  requestAnimationFrame(soundwaveLoop);
+}
+
+
 const audio = document.getElementById('audio');
 audio.src = CONFIG.audio.src;
+soundwaveLoop();
 
 const btnPlay = document.getElementById('btn-play');
 const playIcon = document.getElementById('play-icon');
@@ -496,6 +596,10 @@ function setPlayIcon(isPlaying) {
 }
 
 btnPlay.addEventListener('click', () => {
+  ensureAudioGraph();
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
   if (audio.paused) {
     audio.play();
   } else {
@@ -588,8 +692,6 @@ allButtons.forEach(item => {
   a.href = item.url;
   a.target = "_blank";
   a.rel = "noopener";
-  a.style.background = item.color;
-  a.style.color = item.textColor;
   if (item.icon) {
     const img = document.createElement('img');
     img.src = item.icon;
