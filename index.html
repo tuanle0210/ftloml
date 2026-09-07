@@ -6,6 +6,19 @@
 <title>For the Loves of My Lives — Tuan Le</title>
 <meta name="description" content="For the Loves of My Lives — Tuan Le">
 
+<!-- Preview khi paste link ra ngoài (Messenger/Zalo/Facebook...).
+     LƯU Ý: đây là thẻ tĩnh, KHÔNG tự đọc theo CONFIG trong script bên dưới
+     (vì các app đọc preview không chạy JavaScript) — nếu đổi tên album/nghệ sĩ/ảnh bìa,
+     nhớ sửa thêm ở đây cho khớp. -->
+<meta property="og:type" content="music.song">
+<meta property="og:title" content="For the Loves of My Lives — Tuan Le">
+<meta property="og:description" content="Nghe và tải về album mới nhất của Tuan Le">
+<meta property="og:image" content="https://tuanle0210.github.io/ftloml/assets/cover.png">
+<meta property="og:url" content="https://tuanle0210.github.io/ftloml/">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" href="assets/cover.png">
+
 <style>
   /* ============================================================
      BIẾN MÀU — 2 chế độ sáng / tối
@@ -33,6 +46,14 @@
   }
 
   * { box-sizing: border-box; }
+
+  /* Hiệu ứng bấm mượt cho mọi nút/link có thể bấm — hơi lún nhẹ khi chạm */
+  button, .streaming a, .socials a {
+    transition: transform 0.15s ease;
+  }
+  button:active, .streaming a:active, .socials a:active {
+    transform: scale(0.95);
+  }
 
   html, body {
     margin: 0;
@@ -74,6 +95,12 @@
     max-width: 480px;
     padding: 20px 20px 48px;
     position: relative;
+    animation: page-fade-in 0.6s ease both;
+  }
+
+  @keyframes page-fade-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
   /* ---------- Toggle dark/light ---------- */
@@ -115,6 +142,13 @@
     border-radius: 16px;
     box-shadow: 0 12px 30px rgba(0,0,0,0.25);
     display: block;
+    animation: cover-spin 8s linear infinite;
+    animation-play-state: paused;
+  }
+
+  @keyframes cover-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
 
   .album-info {
@@ -267,14 +301,14 @@
   .streaming a {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 12px;
+    justify-content: flex-start;
+    gap: 16px;
     width: 100%;
-    padding: 14px 16px;
+    padding: 14px 20px;
     border-radius: 14px;
     text-decoration: none;
-    font-weight: 600;
-    font-size: 0.95rem;
+    font-weight: 700;
+    font-size: 1.2rem;
     background: #ffffff;
     border: 2px solid var(--accent);
     color: var(--accent);
@@ -288,9 +322,10 @@
     outline-offset: 2px;
   }
   .streaming a img {
-    width: 22px;
-    height: 22px;
+    width: 36px;
+    height: 36px;
     display: block;
+    flex-shrink: 0;
   }
 
   /* ---------- Social icons cuối trang ---------- */
@@ -603,6 +638,11 @@ function setPlayIcon(isPlaying) {
   playIcon.src = isPlaying ? 'assets/icons/pause.svg' : 'assets/icons/play.svg';
 }
 
+const coverImg = document.getElementById('cover-img');
+function setCoverSpinning(isPlaying) {
+  coverImg.style.animationPlayState = isPlaying ? 'running' : 'paused';
+}
+
 btnPlay.addEventListener('click', () => {
   ensureAudioGraph();
   if (audioCtx.state === 'suspended') {
@@ -614,8 +654,8 @@ btnPlay.addEventListener('click', () => {
     audio.pause();
   }
 });
-audio.addEventListener('play', () => setPlayIcon(true));
-audio.addEventListener('pause', () => setPlayIcon(false));
+audio.addEventListener('play', () => { setPlayIcon(true); setCoverSpinning(true); });
+audio.addEventListener('pause', () => { setPlayIcon(false); setCoverSpinning(false); });
 
 audio.addEventListener('loadedmetadata', () => {
   durationTimeEl.textContent = formatSeconds(audio.duration);
