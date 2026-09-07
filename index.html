@@ -241,6 +241,18 @@
     line-height: 1.7;
     color: var(--text);
     padding: 2px 4px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent) transparent;
+  }
+  .lyrics-box::-webkit-scrollbar {
+    width: 6px;
+  }
+  .lyrics-box::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .lyrics-box::-webkit-scrollbar-thumb {
+    background: var(--accent);
+    border-radius: 999px;
   }
 
   .soundwave {
