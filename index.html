@@ -142,8 +142,12 @@
     border-radius: 16px;
     box-shadow: 0 12px 30px rgba(0,0,0,0.25);
     display: block;
-    animation: cover-spin 8s linear infinite;
+    animation: cover-spin 1.4s linear infinite;
     animation-play-state: paused;
+    transition: border-radius 0.4s ease;
+  }
+  .cover-wrap img.spinning {
+    border-radius: 50%;
   }
 
   @keyframes cover-spin {
@@ -299,10 +303,9 @@
     gap: 10px;
   }
   .streaming a {
-    display: flex;
+    display: grid;
+    grid-template-columns: 36px 1fr 36px;
     align-items: center;
-    justify-content: flex-start;
-    gap: 16px;
     width: 100%;
     padding: 14px 20px;
     border-radius: 14px;
@@ -322,10 +325,15 @@
     outline-offset: 2px;
   }
   .streaming a img {
+    grid-column: 1;
+    justify-self: start;
     width: 36px;
     height: 36px;
     display: block;
-    flex-shrink: 0;
+  }
+  .streaming a span {
+    grid-column: 2;
+    text-align: center;
   }
 
   /* ---------- Social icons cuối trang ---------- */
@@ -640,7 +648,17 @@ function setPlayIcon(isPlaying) {
 
 const coverImg = document.getElementById('cover-img');
 function setCoverSpinning(isPlaying) {
-  coverImg.style.animationPlayState = isPlaying ? 'running' : 'paused';
+  if (isPlaying) {
+    coverImg.classList.add('spinning');
+    coverImg.style.animationPlayState = 'running';
+  } else {
+    coverImg.classList.remove('spinning');
+    // Reset animation để lần play tiếp theo luôn bắt đầu lại từ góc 0 độ,
+    // tránh dừng lại giữa chừng lúc hình đã trở về vuông (nhìn sẽ bị lệch).
+    coverImg.style.animation = 'none';
+    void coverImg.offsetWidth;
+    coverImg.style.animation = '';
+  }
 }
 
 btnPlay.addEventListener('click', () => {
