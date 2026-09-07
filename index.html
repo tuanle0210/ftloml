@@ -184,12 +184,13 @@
   }
 
   .controls {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 22px;
   }
-  .controls button {
+  .controls button:not(.btn-lyrics-toggle) {
     border: none;
     background: transparent;
     padding: 0;
@@ -201,6 +202,37 @@
   .controls button img { display: block; }
   #btn-prev img, #btn-next img { width: 44px; height: 44px; }
   #btn-play img { width: 60px; height: 60px; }
+
+  .btn-lyrics-toggle {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 2px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 6px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    text-shadow: none;
+    transition: transform 0.15s ease;
+  }
+  .btn-lyrics-toggle:active {
+    transform: translateY(-50%) scale(0.92);
+  }
+
+  .lyrics-box {
+    margin-top: 18px;
+    max-height: 220px;
+    overflow-y: auto;
+    white-space: pre-line;
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: var(--text);
+    padding: 2px 4px;
+  }
 
   .soundwave {
     display: block;
@@ -392,6 +424,7 @@
       <button id="btn-next" aria-label="Bài tiếp theo">
         <img src="assets/icons/next.svg" alt="">
       </button>
+      <button id="btn-lyrics" class="btn-lyrics-toggle" type="button">Lyrics</button>
     </div>
 
     <canvas id="soundwave" class="soundwave" aria-hidden="true"></canvas>
@@ -403,6 +436,7 @@
     </div>
 
     <div class="track-grid" id="track-grid"></div>
+    <div class="lyrics-box" id="lyrics-box" style="display:none;"></div>
   </div>
 
   <button class="cta-static" id="scroll-cta">Stream &amp; Download</button>
@@ -441,6 +475,663 @@ const CONFIG = {
       "1:50", "2:12", "2:34", "2:56", "3:18"
     ],
   },
+
+  // ---- Lời bài hát (lyrics) từng bài, bấm nút "Lyrics" cạnh Play sẽ hiện ra ----
+  // Phải có đúng 10 dòng, theo đúng thứ tự bài 1 → bài 10, khớp với thứ tự ở trackStarts trên.
+  // Dán lời bài hát trực tiếp vào giữa 2 dấu ` `, xuống dòng bình thường bằng phím Enter là được,
+  // không cần gõ thêm ký hiệu gì cả.
+  lyrics: [
+    `(Intro — không lời)`,
+    `You, you, you
+
+You, you, you
+
+You, you, you
+
+You so pretty baby
+
+You, you, you
+
+You, you, you
+
+You, you, you
+
+Stuck inside my head
+
+Oh Anna
+
+Pick up the phone
+
+Say something clever
+
+I’m heading to your place, no pressure
+
+Let’s get far away
+
+‘Cause I don’t know how to shake this fever
+
+Only your love can make me stronger
+
+Lift me up, but don’t let me down
+
+Take my hands, don’t let them drown, just stay
+
+I’m going faster while I’m getting higher
+
+Feeling nauseous when the pills kicked in
+
+Tell me, baby, are you free this Saturday night?
+
+Give me all you’ve got so I can stop thinking of you, oh baby
+
+You, you, you
+
+You, you, you
+
+You, you, you
+
+You so pretty baby
+
+You, you, you
+
+You, you, you
+
+You, you, you
+
+Stuck inside my head
+
+Oh Anna
+
+Oh oh I did it again
+
+I crossed the line that we can’t define and
+
+I know that you wanna take it slow
+
+but I’m burning just to know how to make you feel and fall in love
+
+Promise that I will do it nonstop so just let me prove it
+
+I wanna make it clear so just quit fucking around
+
+God I’m still falling into all these mixed feelings
+
+Guess I love the way you keep me guessing
+
+Tell me, baby, are you free this Sunday morning?
+
+Give me all you’ve got so I can stop thinking of you, oh baby
+
+‘Cause I just want your love
+
+Every inch of your skin, every breath that you take
+
+Just give it all to me
+
+And then let your mind be free`,
+    `Ngày ngủ còn đêm chơi
+
+Ai biết đâu được em phiêu du đây đó
+
+Chẳng cần một ai đâu
+
+Vì em luôn biết rằng em thật quý giá
+
+Em như là hoa ở trên cành
+
+Bao nhiêu người thương cũng chẳng đành
+
+Vì mai nay lỡ rồi em đi mất
+
+Tôi mang thầm thương viết cho em
+
+Đêm đêm ngồi ca hát bên thềm
+
+Dù cho tôi biết chẳng thể nào mà có em
+
+Cho dù em biết anh yêu em nhưng thôi em vẫn cứ lặng thinh
+
+Bao chuyện cỏn con, phai nhạt màu son, lem hết mi
+
+Yêu thì yêu không yêu thì thôi dù sao cũng cách xa
+
+Lỡ mai em đi về xa vời, có chăng đây chỉ còn lại mình anh?
+
+Okay em ơi nghe anh nói này
+
+Cho anh một cơ hội để anh được giãi bày
+
+Anh biết em biết là anh không ý kiến
+
+Nhưng mà xinh như thế sao em không có duyên?
+
+Cứ quăng miếng chán chê rồi em đi mất
+
+Anh cứ ngồi trông ngóng cứ nghĩ em nói thật
+
+Vài ba hôm quay lại em nói em nhớ anh nhất
+
+Cơ mà sao anh vẫn tin em như thằng đần?
+
+Hay tại em chỉ yêu người ít nói
+
+Không cần nhiều lời chẳng cần thanh minh
+
+Mỗi khi em buồn khi em giận dỗi
+
+Lời xin lỗi họ gửi qua tin nhắn banking
+
+Tin nhắn anh gửi em chưa bấm xem
+
+Em up thread hỏi bao nhiêu người đang nhớ em
+
+Tình yêu không phải thế đâu em ơi
+
+Đây không phải gameshow Hiếu Thứ Hai còn lười chơi
+
+Ngày ngủ bù cho đêm
+
+Tôi vẫn cứ ngây dại đi theo em như thế
+
+Dù biết em sẽ chẳng hề bận tâm
+
+Nhưng sao tôi vẫn ấp ôm một mối tình
+
+Biết đâu em như là hoa ở trên cành
+
+Bao nhiêu người thương cũng chẳng đành
+
+Rồi buổi chiều hôm ấy chợt em đi mất
+
+Tôi mang thầm thương viết cho em
+
+Em chưa đọc xong vứt quanh nhà
+
+Vì là em cũng biết tôi chẳng thể nào mà có em
+
+Cho dù em biết anh yêu em nhưng thôi em vẫn cứ lặng thinh
+
+Bao chuyện cỏn con, phai nhạt màu son, lem hết mi
+
+Yêu thì yêu không yêu thì thôi dù sao cũng cách xa
+
+Lỡ mai em đi về xa vời, có chăng đây chỉ còn lại mình anh?
+
+Phải chi anh đoán ra khi em ngang qua đây ngào ngạt mùi hương nước hoa
+
+Giày cao gót thướt tha đưa em đi qua bao nhiêu chuyện tình yêu thoáng
+qua
+
+Phải chi anh đoán ra khi em ngang qua đây ngào ngạt mùi hương nước hoa
+
+Giày cao gót thướt tha đưa em đi qua bao nhiêu chuyện tình yêu thoáng
+qua`,
+    `We’ve been down this road
+
+And it’s getting old
+
+I don't wanna waste your time so please, listen
+
+I tested the flame
+
+And yes, I’m telling you
+
+We’ve made up our minds since the last time
+
+So don’t lay the wreck at my front door
+
+I know it hurts so good
+
+‘Cause I’ve experienced it before
+
+What we loved was the tension
+
+I let you stay the nights in my room
+
+But I don’t want you to be mine
+
+I don’t want your attention
+
+I’m not the one to love
+
+You don’t deserve to be alone
+
+Guess I should walk away from your life
+
+You don’t have to stay
+
+I’ll find a way to fade away
+
+You know it’s time that you decided
+
+We made up our minds the last time
+
+So you shouldn’t say it was my fault
+
+I can’t take the blame ‘cause you already knew that
+
+The burns gonna be alright
+
+I know it hurts so good
+
+‘Cause I’ve experienced it before
+
+What we loved was the tension
+
+I let you stay the nights in my room
+
+But I don’t want you to be mine
+
+I don’t want your attention`,
+    `Hà Nội một ngày có mưa
+
+Phải chăng đã có người đón đưa em rồi
+
+Nên lại một lần em quên mất anh?
+
+Chỉ mong em ở lại với anh dù chẳng còn làm gì được nữa
+
+Cứ thế loay hoay loanh quanh anh đi tìm nhưng
+
+Chưa bao giờ anh tìm thấy ai, thấy ai trong cuộc đời này
+
+Chắc do anh bị trời đày, vẫn mong em ngày từng ngày từng giờ
+
+Dù cho anh chẳng phải người em mong ngóng trong tim
+
+Nếu như mà em không tồn tại
+
+Chắc chi là anh đã ở lại?
+
+Nếu anh chọn quay lưng anh bước đi
+
+Thôi không khờ dại thì còn gì nữa
+
+Mất rồi cất lời làm gì?
+
+Bao nhiêu đêm quay cuồng rồi lại tự mình chìm đắm thắc mắc với những vì
+sao
+
+Em ơi em có biết là yêu thương trao riêng em mà
+
+Baby, xin em, 괜찮아
+
+Nếu anh biết trước được thì đã đành lòng để mà bước đi
+
+Mong em sẽ không ướt mi
+
+Cho anh ôm em trước khi
+
+Nếu như còn cơ hội nào thì làm ơn
+
+Làm ơn đi mà em
+
+Đừng để chuyện tình mình trôi như làn mây nhẹ lướt qua
+
+Hà Nội ngày nắng đẹp, anh quay lưng bước đi
+
+Em còn không muốn nghe anh giãi bày
+
+“Sao anh cứ nhăng cuội chi vậy?”
+
+Thôi thì đành
+
+Nhất quyết cứ thế vậy đi
+
+Không thể mãi cứ theo em điên cuồng
+
+Dây dưa với nhau chỉ thêm buồn
+
+Đời còn dài mà
+
+Nhưng sao anh vẫn cứ chùn chân
+
+Anh vẫn mong phút giây người níu lại
+
+Dù dẫu cũng chỉ là thương hại
+
+Nhưng em đâu rồi?
+
+Buông thì là mất chứ còn sao
+
+Em còn không muốn nghe anh giãi bày
+
+“Sao anh cứ nhăng cuội chi vậy?”
+
+Thôi thì đành
+
+Nhất quyết cứ thế vậy đi
+
+Không thể mãi cứ theo em điên cuồng
+
+Dây dưa với nhau chỉ thêm buồn
+
+Đời còn dài mà
+
+Nhưng sao anh vẫn cứ chùn chân
+
+Anh vẫn mong phút giây người níu lại
+
+Dù dẫu cũng chỉ là thương hại
+
+Thôi hát lên nào…
+
+Nếu như mà em không tồn tại
+
+Chắc chi là anh đã ở lại?
+
+Nếu anh chọn quay lưng anh bước đi
+Thôi không khờ dại thì còn gì nữa?
+
+Mất rồi cất lời làm gì?`,
+    `Dreaming of you
+
+I’m dreaming of you
+
+I’m dreaming of you
+
+Yeah I’m dreaming, I’m dreaming
+
+I’m dreaming of you
+
+I’m dreaming of you
+
+I’m dreaming of you
+
+Yeah I’m dreaming, I’m dreaming ‘bout your…
+
+Face, again
+
+It’s 3AM and I can’t sleep
+
+Tryna find a way to let out
+
+I hope you’ll know, you’ll notice
+
+That I’m sick of being alone
+
+So would you grab your phone and call me
+‘Cause I…
+
+Love the way you looked at me when we were high
+
+Just did it once or twice but god I thought that you were mine
+
+You’re just coming out of nowhere
+
+I don’t even know, but
+
+When my time has come, I’d still find a way to see you once again
+
+So help me stop the dream about you
+
+Dreaming of you
+
+I’m dreaming of you
+
+I’m dreaming of you
+
+Yeah I’m dreaming, I’m dreaming
+
+I’m dreaming of you
+
+I’m dreaming of you
+
+I’m dreaming of you
+
+Yeah I’m dreaming, I’m dreaming ‘bout your…
+
+Lately living passionately
+
+And honestly I don’t even know why
+
+Those shawty hitting up my phone but I’m just
+
+Leaving them on the side
+
+I put you above ‘cause I know they ain’t love
+
+A couple of fucks still can never be love
+
+Crazy, everything you do is just crazy
+
+Got a pretty smile, but you do a line, get drunk all the time
+
+Just to feel alive, that’s your religion
+
+And you cover up your tattoos, but you let show all the scars
+
+You said you like me too then you keep flirting at the bars
+
+But I don’t know why I…
+
+Love the way you looked at me when we were high
+
+Just did it once or twice but god I thought that you were mine
+
+You’re just coming out of nowhere
+
+I don’t even know, but
+
+When my time has come, I’d still find a way to see you once again
+
+So help me stop the dream about you
+
+I love the way you looked at me when I was high
+
+Just did it once or twice oh god I thought that you were mine
+
+You’re just coming out of nowhere
+
+I don’t even know if
+
+I’d still find a way to meet you once again
+
+So I can stop the…
+
+Dreaming of you
+
+I’m dreaming of you
+
+I’m dreaming of you
+
+Yeah I’m dreaming, I’m dreaming
+
+I’m dreaming of you
+
+I’m dreaming of you
+
+I’m dreaming of you
+
+Yeah I’m dreaming, I’m dreaming ‘bout your…
+
+Yeah I’m dreaming
+
+Yeah I’m dreaming
+
+Yeah I’m dreaming
+
+Dreaming`,
+    `Thức dậy sau một giấc ngủ say chẳng thấy em nơi này
+
+Mùi hương thơm làn da em còn vương vấn theo làn gió bay
+
+Như em mới tới đêm qua
+
+Mang những câu ca
+
+La La La La
+
+Baby anh cần thêm Hennessy
+
+Vì làn khói đang vơi dần
+
+Anh chẳng màng đi những đâu
+
+Anh chỉ mong được tìm đến với em
+
+Ta cùng nhau lại say cho hết đêm
+
+Rồi anh thức dậy
+
+Đắm trong hơi men lại cứ thế qua nơi em chờ đợi mãi
+
+Đứng trước cửa nhà
+
+“Give me some morphine baby I don’t know”
+
+Đứng trước cửa nhà em gọi to
+
+Anh đưa tay với lấy những hơi ấm em còn vương lại đây
+
+Gặp anh một chút thôi,
+
+Không cần cầu kỳ thêm mắt môi
+
+Vì anh nhớ em nhiều
+
+Chỉ đợi để nói hết bao điều
+
+Anh chẳng ngại phải đợi bao nhiêu đêm
+
+Đừng để anh phải gọi to tên em
+
+Baby anh đang đứng đây trước nhà
+
+Chờ đợi em từ cánh cổng bước ra
+
+“Give me some morphine baby I don’t know”
+
+Đứng trước cửa nhà em gọi to
+
+Anh đưa tay với lấy những hơi ấm em còn vương
+
+Vương lại ở đây
+
+Ngay trước cửa nhà`,
+    `Anh cứ hẹn, nhưng đừng ra em nhé
+
+Chút nữa thôi, trời sáng rồi anh về
+
+Lần sau cuối đứng chờ em trước cửa
+
+Đừng đáp lại, anh muốn đứng đây thôi
+
+Bụi hoa nhài trước hiên nhà sắp sửa
+
+Tỏa hương nồng vây kín trái tim anh
+Rồi mai đây khi máy bay hạ cánh
+
+Hoàng hôn xuống, nhường nắng ấm nơi anh
+
+Đừng đợi chờ, mang tên anh khắc khoải
+
+Biết em buồn, anh xót lắm, nghe em?`,
+    `Lạ thay, buổi sáng nay
+
+Không một tin nhắn em hỏi han
+
+Chẳng còn tiếng em thở than như anh từng nhớ
+
+Trước đây anh mong được yên bình
+
+Vậy giờ sao anh thấy xung quanh bỗng yên lặng?
+
+Tại sao lại thấy trống vắng thế này?
+
+Buổi sáng đầu tiên sau chia tay
+
+Liệu những ngày sau sẽ như vậy?
+
+Nhủ lòng không nghĩ gì về em thế nhưng tại sao?
+
+Buổi sáng đầu tiên sau chia tay
+
+Liệu em có thấy trong tim mình như chết đi một phần?
+
+Anh cứ nghĩ mình vượt qua hết
+
+Vẫn cứ nghĩ mình vui như Tết mỗi khi gặp nhau
+
+Thời gian cứ trôi thật lâu
+
+Bỏ quên trái tim quặn đau bao lần mà rồi lại chọn không nói ra
+
+Để rồi giờ đây, câu chia tay đến bất ngờ
+
+Nhưng em cũng đã mong chờ nơi tôi để rồi đơn côi thì thầm tên tôi
+
+Vậy nên thôi, chuyện mình xong xuôi
+
+Một hai câu chẳng thể làm mình trở về lúc đầu
+
+Buổi sáng đầu tiên sau chia tay
+
+Liệu những ngày sau sẽ như vậy?
+
+Nhủ lòng không nghĩ gì về em thế nhưng tại sao?
+
+Buổi sáng đầu tiên sau chia tay
+
+Liệu em có thấy trong tim mình như chết đi
+
+Buổi sáng đầu tiên sau chia tay
+
+Anh thấy lạc lõng vô cùng
+
+Nhủ lòng phải cố quên đi em thế nhưng mà tại sao?
+
+Buổi sáng đầu tiên sau chia tay
+
+Liệu em có thấy trong tim mình như chết đi một phần`,
+    `Ivy,
+
+They don't know that you cry
+
+When they're proving them right
+
+You might be
+
+Feeling down in your life
+
+Even though you have tried
+
+But baby,
+
+It's gonna be just fine
+
+Ivy,
+
+At the end of the show
+
+People come and then go
+
+You don't know, it’s time to let go
+
+You don't need them to grow
+
+So baby,
+
+It's gonna be just fine
+
+Ivy,
+
+You're the love of my life
+
+Don't you act so surprised
+
+And Ivy,
+
+I can still see your light
+
+Though it dims in your eyes
+
+So baby,
+
+It's gonna be just fine
+
+I'm always by your side`,
+  ],
 
   // ---- Các nút Streaming (thêm platform mới chỉ cần thêm 1 dòng ở đây) ----
   // Lưu ý: hiện các nút đang dùng chung 1 kiểu trắng/viền hồng theo theme,
@@ -713,7 +1404,32 @@ function updateActiveTrack() {
   const idx = getCurrentTrackIndex(audio.currentTime);
   const buttons = trackGrid.querySelectorAll('button');
   buttons.forEach((b, i) => b.classList.toggle('active', i === idx));
+  if (lyricsMode) renderLyrics(idx);
 }
+
+// ---------- Lyrics: chuyển đổi lưới số <-> khung lyrics ----------
+const btnLyrics = document.getElementById('btn-lyrics');
+const lyricsBox = document.getElementById('lyrics-box');
+let lyricsMode = false;
+
+function renderLyrics(idx) {
+  const text = CONFIG.lyrics[idx] || 'Lyrics đang được cập nhật...';
+  lyricsBox.textContent = text;
+}
+
+btnLyrics.addEventListener('click', () => {
+  lyricsMode = !lyricsMode;
+  if (lyricsMode) {
+    trackGrid.style.display = 'none';
+    lyricsBox.style.display = 'block';
+    btnLyrics.textContent = 'Số bài';
+    renderLyrics(getCurrentTrackIndex(audio.currentTime));
+  } else {
+    trackGrid.style.display = '';
+    lyricsBox.style.display = 'none';
+    btnLyrics.textContent = 'Lyrics';
+  }
+});
 
 btnNext.addEventListener('click', () => {
   const idx = getCurrentTrackIndex(audio.currentTime);
