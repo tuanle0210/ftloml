@@ -1084,8 +1084,16 @@ btnPlay.addEventListener('click', () => {
     audio.pause();
   }
 });
-audio.addEventListener('play', () => { setPlayIcon(true); setCoverSpinning(true); });
-audio.addEventListener('pause', () => { setPlayIcon(false); setCoverSpinning(false); });
+audio.addEventListener('play', () => {
+  setPlayIcon(true);
+  setCoverSpinning(true);
+  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+});
+audio.addEventListener('pause', () => {
+  setPlayIcon(false);
+  setCoverSpinning(false);
+  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+});
 
 audio.addEventListener('loadedmetadata', () => {
   durationTimeEl.textContent = formatSeconds(audio.duration);
@@ -1098,6 +1106,8 @@ audio.addEventListener('timeupdate', () => {
   progress.value = pct;
   progress.style.setProperty('--progress-pct', (pct / 10) + '%');
   updateActiveTrack();
+  updateMediaSessionMetadata(getCurrentTrackIndex(audio.currentTime));
+  updateMediaSessionPosition();
 });
 
 progress.addEventListener('input', () => {
@@ -1120,6 +1130,44 @@ function getCurrentTrackIndex(time) {
   }
   return idx;
 }
+
+// ---------- Media Session API: điều khiển từ màn hình khoá / tai nghe bluetooth ----------
+let lastMediaSessionIdx = -1;
+
+function setupMediaSession() {
+  if (!('mediaSession' in navigator)) return;
+
+  navigator.mediaSession.setActionHandler('play', () => { btnPlay.click(); });
+  navigator.mediaSession.setActionHandler('pause', () => { btnPlay.click(); });
+  navigator.mediaSession.setActionHandler('previoustrack', () => { btnPrev.click(); });
+  navigator.mediaSession.setActionHandler('nexttrack', () => { btnNext.click(); });
+}
+
+function updateMediaSessionMetadata(idx) {
+  if (!('mediaSession' in navigator)) return;
+  if (idx === lastMediaSessionIdx) return;
+  lastMediaSessionIdx = idx;
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: `Track ${idx + 1} — ${CONFIG.album.title}`,
+    artist: CONFIG.album.artist,
+    album: CONFIG.album.title,
+    artwork: [{ src: 'assets/cover.png', sizes: '512x512', type: 'image/png' }],
+  });
+}
+
+function updateMediaSessionPosition() {
+  if (!('mediaSession' in navigator) || !navigator.mediaSession.setPositionState) return;
+  if (!isFinite(audio.duration) || audio.duration <= 0) return;
+  try {
+    navigator.mediaSession.setPositionState({
+      duration: audio.duration,
+      playbackRate: audio.playbackRate,
+      position: audio.currentTime,
+    });
+  } catch (e) { /* bỏ qua nếu trình duyệt không hỗ trợ */ }
+}
+
+setupMediaSession();
 
 function updateActiveTrack() {
   const idx = getCurrentTrackIndex(audio.currentTime);
