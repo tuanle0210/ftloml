@@ -34,6 +34,7 @@
     --border-soft: rgba(43,35,32,0.08);
     --track-btn-bg: rgba(43,35,32,0.06);
     --bg-overlay: rgba(255,255,255,0.08); /* lớp phủ nhẹ ở light mode, gần như trong suốt */
+    --link-text: var(--accent); /* màu chữ nút Streaming/Download ở light mode */
   }
 
   [data-theme="dark"] {
@@ -43,6 +44,7 @@
     --border-soft: rgba(245,239,236,0.10);
     --track-btn-bg: rgba(245,239,236,0.08);
     --bg-overlay: rgba(0,0,0,0.55); /* lớp phủ tối ở dark mode, làm ảnh nền trầm xuống */
+    --link-text: #ffffff; /* màu chữ nút Streaming/Download ở dark mode */
   }
 
   * { box-sizing: border-box; }
@@ -344,9 +346,9 @@
     text-decoration: none;
     font-weight: 700;
     font-size: 1.2rem;
-    background: #ffffff;
+    background: var(--card-bg);
     border: 2px solid var(--accent);
-    color: var(--accent);
+    color: var(--link-text);
     box-shadow: 0 4px 14px rgba(0,0,0,0.08);
     -webkit-tap-highlight-color: transparent;
     outline: none;
