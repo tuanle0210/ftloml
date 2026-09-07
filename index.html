@@ -100,6 +100,13 @@
     animation: page-fade-in 0.6s ease both;
   }
 
+  @media (min-width: 600px) {
+    .page {
+      padding-left: 48px;
+      padding-right: 48px;
+    }
+  }
+
   @keyframes page-fade-in {
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
@@ -138,10 +145,10 @@
     justify-content: center;
   }
   .cover-wrap img {
-    width: 50%;
+    width: 65%;
     aspect-ratio: 1 / 1;
     object-fit: cover;
-    border-radius: 16px;
+    border-radius: 20px;
     box-shadow: 0 12px 30px rgba(0,0,0,0.25);
     display: block;
     animation: cover-spin 1.4s linear infinite;
@@ -181,8 +188,8 @@
     margin-top: 24px;
     background: var(--card-bg);
     border-radius: 20px;
+    border: 1.5px solid var(--border-soft);
     padding: 20px 18px 22px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
   }
 
   .controls {
@@ -299,7 +306,7 @@
   }
   .track-grid button {
     aspect-ratio: 1 / 1;
-    border-radius: 10px;
+    border-radius: 12px;
     border: none;
     background: var(--track-btn-bg);
     color: var(--text);
@@ -320,7 +327,7 @@
     margin: 18px auto 0 auto;
     padding: 14px 28px;
     border: none;
-    border-radius: 14px;
+    border-radius: 12px;
     background: var(--accent);
     color: var(--accent-contrast);
     font-size: 0.95rem;
@@ -342,7 +349,7 @@
     align-items: center;
     width: 100%;
     padding: 14px 20px;
-    border-radius: 14px;
+    border-radius: 12px;
     text-decoration: none;
     font-weight: 700;
     font-size: 1.2rem;
@@ -483,7 +490,7 @@ const CONFIG = {
   // Dán lời bài hát trực tiếp vào giữa 2 dấu ` `, xuống dòng bình thường bằng phím Enter là được,
   // không cần gõ thêm ký hiệu gì cả.
   lyrics: [
-    `(Intro)`,
+    `(Intro — không lời)`,
     `You, you, you
 You, you, you
 You, you, you
@@ -1087,12 +1094,10 @@ btnPlay.addEventListener('click', () => {
 audio.addEventListener('play', () => {
   setPlayIcon(true);
   setCoverSpinning(true);
-  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
 });
 audio.addEventListener('pause', () => {
   setPlayIcon(false);
   setCoverSpinning(false);
-  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
 });
 
 audio.addEventListener('loadedmetadata', () => {
@@ -1106,8 +1111,6 @@ audio.addEventListener('timeupdate', () => {
   progress.value = pct;
   progress.style.setProperty('--progress-pct', (pct / 10) + '%');
   updateActiveTrack();
-  updateMediaSessionMetadata(getCurrentTrackIndex(audio.currentTime));
-  updateMediaSessionPosition();
 });
 
 progress.addEventListener('input', () => {
@@ -1130,44 +1133,6 @@ function getCurrentTrackIndex(time) {
   }
   return idx;
 }
-
-// ---------- Media Session API: điều khiển từ màn hình khoá / tai nghe bluetooth ----------
-let lastMediaSessionIdx = -1;
-
-function setupMediaSession() {
-  if (!('mediaSession' in navigator)) return;
-
-  navigator.mediaSession.setActionHandler('play', () => { btnPlay.click(); });
-  navigator.mediaSession.setActionHandler('pause', () => { btnPlay.click(); });
-  navigator.mediaSession.setActionHandler('previoustrack', () => { btnPrev.click(); });
-  navigator.mediaSession.setActionHandler('nexttrack', () => { btnNext.click(); });
-}
-
-function updateMediaSessionMetadata(idx) {
-  if (!('mediaSession' in navigator)) return;
-  if (idx === lastMediaSessionIdx) return;
-  lastMediaSessionIdx = idx;
-  navigator.mediaSession.metadata = new MediaMetadata({
-    title: `Track ${idx + 1} — ${CONFIG.album.title}`,
-    artist: CONFIG.album.artist,
-    album: CONFIG.album.title,
-    artwork: [{ src: 'assets/cover.png', sizes: '512x512', type: 'image/png' }],
-  });
-}
-
-function updateMediaSessionPosition() {
-  if (!('mediaSession' in navigator) || !navigator.mediaSession.setPositionState) return;
-  if (!isFinite(audio.duration) || audio.duration <= 0) return;
-  try {
-    navigator.mediaSession.setPositionState({
-      duration: audio.duration,
-      playbackRate: audio.playbackRate,
-      position: audio.currentTime,
-    });
-  } catch (e) { /* bỏ qua nếu trình duyệt không hỗ trợ */ }
-}
-
-setupMediaSession();
 
 function updateActiveTrack() {
   const idx = getCurrentTrackIndex(audio.currentTime);
