@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>For the Loves of My Lives — Tuan Le</title>
+<meta name="description" content="For the Loves of My Lives — Tuan Le">
+
+<style>
+  /* ============================================================
+     BIẾN MÀU — 2 chế độ sáng / tối
+     Muốn đổi tông màu chính (hot pink) chỉ cần sửa --accent ở cả 2 khối bên dưới.
+  ============================================================ */
+  :root {
+    --accent: #df4a5e;         /* màu nhấn chính: play button, slider, nút CTA */
+    --accent-contrast: #ffffff;
+
+    --card-bg: #fffdf9;        /* nền card, trắng ngà */
+    --text: #2b2320;           /* chữ chính, tối */
+    --text-soft: rgba(43,35,32,0.65);
+    --border-soft: rgba(43,35,32,0.08);
+    --track-btn-bg: rgba(43,35,32,0.06);
+    --bg-overlay: rgba(255,255,255,0.08); /* lớp phủ nhẹ ở light mode, gần như trong suốt */
+  }
+
+  [data-theme="dark"] {
+    --card-bg: #1a1210;
+    --text: #f5efec;
+    --text-soft: rgba(245,239,236,0.65);
+    --border-soft: rgba(245,239,236,0.10);
+    --track-btn-bg: rgba(245,239,236,0.08);
+    --bg-overlay: rgba(0,0,0,0.55); /* lớp phủ tối ở dark mode, làm ảnh nền trầm xuống */
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    transition: color 0.3s ease;
+  }
+
+  /* Ảnh nền cố định phía sau toàn trang, không dùng background-attachment:fixed
+     để tránh lỗi hiển thị trên Safari/iOS. */
+  .bg-layer {
+    position: fixed;
+    inset: 0;
+    background-image: url('assets/background.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    z-index: -2;
+  }
+  .bg-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg-overlay);
+    z-index: -1;
+    transition: background 0.3s ease;
+  }
+
+  .page {
+    width: 100%;
+    max-width: 480px;
+    padding: 20px 20px 48px;
+    position: relative;
+  }
+
+  /* ---------- Toggle dark/light ---------- */
+  .theme-toggle {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: var(--card-bg);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+  }
+  .theme-toggle img {
+    width: 20px;
+    height: 20px;
+    display: block;
+  }
+  .theme-toggle .icon-moon { display: none; }
+  [data-theme="dark"] .theme-toggle .icon-sun { display: none; }
+  [data-theme="dark"] .theme-toggle .icon-moon { display: block; }
+
+  /* ---------- Cover + tên album ---------- */
+  .cover-wrap {
+    margin-top: 64px;
+    display: flex;
+    justify-content: center;
+  }
+  .cover-wrap img {
+    width: 50%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    border-radius: 16px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+    display: block;
+  }
+
+  .album-info {
+    text-align: center;
+    margin-top: 18px;
+  }
+  .album-info h1 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1.3;
+  }
+  .album-info p {
+    font-size: 0.95rem;
+    color: var(--text-soft);
+    margin: 4px 0 0;
+  }
+
+  /* ---------- Player card ---------- */
+  .player {
+    margin-top: 24px;
+    background: var(--card-bg);
+    border-radius: 20px;
+    padding: 20px 18px 22px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+  }
+  .controls button {
+    border: none;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .controls button img { display: block; }
+  #btn-prev img, #btn-next img { width: 44px; height: 44px; }
+  #btn-play img { width: 60px; height: 60px; }
+
+  .progress-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 18px;
+  }
+  .time-label {
+    font-size: 0.75rem;
+    color: var(--text-soft);
+    min-width: 34px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  input[type="range"] {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border-soft);
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: none;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: none;
+  }
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(to right, var(--accent) var(--progress-pct, 0%), var(--border-soft) 0%);
+  }
+
+  /* ---------- Lưới 10 nút số ---------- */
+  .track-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-top: 18px;
+  }
+  .track-grid button {
+    aspect-ratio: 1 / 1;
+    border-radius: 10px;
+    border: none;
+    background: var(--track-btn-bg);
+    color: var(--text);
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .track-grid button.active {
+    background: var(--accent);
+    color: var(--accent-contrast);
+  }
+
+  /* ---------- Nút "Nghe & Tải về" ---------- */
+  .cta-static {
+    display: block;
+    width: 100%;
+    margin-top: 18px;
+    padding: 14px;
+    border: none;
+    border-radius: 14px;
+    background: var(--accent);
+    color: var(--accent-contrast);
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* ---------- Streaming / Download ---------- */
+  .streaming {
+    margin-top: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .streaming a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: 14px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.95rem;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+  }
+  .streaming a img {
+    width: 22px;
+    height: 22px;
+    display: block;
+  }
+
+  /* ---------- Social icons cuối trang ---------- */
+  .socials {
+    margin-top: 28px;
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+  }
+  .socials a {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: var(--card-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+  }
+  .socials a img {
+    width: 22px;
+    height: 22px;
+    display: block;
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-layer"></div>
+<div class="bg-overlay"></div>
+
+<div class="page">
+
+  <button class="theme-toggle" id="theme-toggle" aria-label="Chuyển đổi giao diện sáng/tối">
+    <img class="icon-sun" src="assets/icons/sun.svg" alt="">
+    <img class="icon-moon" src="assets/icons/moon.svg" alt="">
+  </button>
+
+  <div class="cover-wrap">
+    <img id="cover-img" src="assets/cover.jpg" alt="">
+  </div>
+
+  <div class="album-info">
+    <h1 id="album-title"></h1>
+    <p id="artist-name"></p>
+  </div>
+
+  <div class="player">
+    <div class="controls">
+      <button id="btn-prev" aria-label="Bài trước">
+        <img src="assets/icons/previous.svg" alt="">
+      </button>
+      <button id="btn-play" aria-label="Phát / Tạm dừng">
+        <img id="play-icon" src="assets/icons/play.svg" alt="">
+      </button>
+      <button id="btn-next" aria-label="Bài tiếp theo">
+        <img src="assets/icons/next.svg" alt="">
+      </button>
+    </div>
+
+    <div class="progress-row">
+      <span class="time-label" id="current-time">0:00</span>
+      <input type="range" id="progress" min="0" max="1000" value="0" step="1">
+      <span class="time-label" id="duration-time">0:00</span>
+    </div>
+
+    <div class="track-grid" id="track-grid"></div>
+  </div>
+
+  <button class="cta-static" id="scroll-cta">Nghe &amp; Tải về</button>
+
+  <div class="streaming" id="streaming-list"></div>
+
+  <div class="socials" id="socials-list"></div>
+
+</div>
+
+<audio id="audio" preload="metadata"></audio>
+
+<script>
+/* ============================================================
+   KHỐI CONFIG — CHỈ CẦN SỬA TRONG NÀY, KHÔNG CẦN BIẾT CODE
+   ============================================================ */
+const CONFIG = {
+
+  // ---- Thông tin album ----
+  album: {
+    title: "For the Loves of My Lives",
+    artist: "Tuan Le",
+  },
+
+  // ---- File nhạc + mốc thời gian từng bài ----
+  audio: {
+    // Đường dẫn file mp3 gộp 10 bài. Khi có bản thật, upload đè đúng tên file này lên GitHub
+    // (không cần đổi dòng này) trừ khi bạn đổi tên file khác đi.
+    src: "assets/album.mp3",
+
+    // Mốc thời gian BẮT ĐẦU của từng bài, định dạng "phút:giây".
+    // ĐANG LÀ PLACEHOLDER chia đều tạm — ĐIỀN LẠI SỐ THẬT khi có file mp3 gộp chính thức.
+    // Phải có đúng 10 mốc, theo đúng thứ tự bài 1 → bài 10.
+    trackStarts: [
+      "0:00", "0:22", "0:44", "1:06", "1:28",
+      "1:50", "2:12", "2:34", "2:56", "3:18"
+    ],
+  },
+
+  // ---- Các nút Streaming (thêm platform mới chỉ cần thêm 1 dòng ở đây) ----
+  // color / textColor: màu nền và màu chữ/icon riêng của từng nút.
+  // icon: đường dẫn icon (để trống "" nếu muốn ẩn icon).
+  // url: ĐIỀN LINK THẬT của bài hát/album trên từng nền tảng.
+  streaming: [
+    {
+      name: "Apple Music",
+      color: "#FA243C",
+      textColor: "#ffffff",
+      icon: "assets/icons/apple-music.svg",
+      url: "https://music.apple.com/PASTE-LINK-THAT-VAO-DAY",
+    },
+    {
+      name: "Spotify",
+      color: "#1DB954",
+      textColor: "#ffffff",
+      icon: "assets/icons/spotify.svg",
+      url: "https://open.spotify.com/PASTE-LINK-THAT-VAO-DAY",
+    },
+    {
+      name: "YouTube",
+      color: "#FF0000",
+      textColor: "#ffffff",
+      icon: "assets/icons/youtube.svg",
+      url: "https://youtube.com/PASTE-LINK-THAT-VAO-DAY",
+    },
+    {
+      name: "YouTube Music",
+      color: "#FF0000",
+      textColor: "#ffffff",
+      icon: "assets/icons/youtube-music.svg",
+      url: "https://music.youtube.com/PASTE-LINK-THAT-VAO-DAY",
+    },
+  ],
+
+  // ---- Nút Download (dẫn ra Google Drive, chứa artwork + lyrics) ----
+  download: {
+    name: "Download",
+    color: "#3a332f",
+    textColor: "#ffffff",
+    icon: "assets/icons/download.svg",
+    // ĐIỀN LINK GOOGLE DRIVE THẬT (nhớ để chế độ chia sẻ "Anyone with the link can view")
+    url: "https://drive.google.com/PASTE-LINK-THAT-VAO-DAY",
+  },
+
+  // ---- Social cuối trang ----
+  social: {
+    facebook: "https://facebook.com/tuanleftu",
+    instagram: "https://instagram.com/tbob.ins",
+    // ĐIỀN EMAIL THẬT — nút Gmail sẽ mở app mail tới đúng địa chỉ này
+    email: "PASTE-EMAIL-THAT-VAO-DAY@gmail.com",
+  },
+};
+
+/* ============================================================
+   TỪ ĐÂY TRỞ XUỐNG LÀ CODE XỬ LÝ — không cần sửa để thay dữ liệu
+   ============================================================ */
+
+// ---------- Điền thông tin album ----------
+document.getElementById('album-title').textContent = CONFIG.album.title;
+document.getElementById('artist-name').textContent = CONFIG.album.artist;
+document.title = CONFIG.album.title + " — " + CONFIG.album.artist;
+
+// ---------- Dark / Light mode ----------
+const root = document.documentElement;
+const themeToggle = document.getElementById('theme-toggle');
+
+function applyTheme(theme) {
+  if (theme === 'dark') {
+    root.setAttribute('data-theme', 'dark');
+  } else {
+    root.removeAttribute('data-theme');
+  }
+}
+
+function getInitialTheme() {
+  const saved = localStorage.getItem('theme');
+  if (saved === 'dark' || saved === 'light') return saved;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+let currentTheme = getInitialTheme();
+applyTheme(currentTheme);
+
+themeToggle.addEventListener('click', () => {
+  currentTheme = (currentTheme === 'dark') ? 'light' : 'dark';
+  applyTheme(currentTheme);
+  localStorage.setItem('theme', currentTheme);
+});
+
+// ---------- Helper thời gian ----------
+function parseTimeToSeconds(str) {
+  const parts = str.split(':').map(Number);
+  return parts[0] * 60 + parts[1];
+}
+function formatSeconds(sec) {
+  if (!isFinite(sec) || sec < 0) sec = 0;
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return m + ':' + String(s).padStart(2, '0');
+}
+
+const trackStartSeconds = CONFIG.audio.trackStarts.map(parseTimeToSeconds);
+
+// ---------- Audio ----------
+const audio = document.getElementById('audio');
+audio.src = CONFIG.audio.src;
+
+const btnPlay = document.getElementById('btn-play');
+const playIcon = document.getElementById('play-icon');
+const btnPrev = document.getElementById('btn-prev');
+const btnNext = document.getElementById('btn-next');
+const progress = document.getElementById('progress');
+const currentTimeEl = document.getElementById('current-time');
+const durationTimeEl = document.getElementById('duration-time');
+const trackGrid = document.getElementById('track-grid');
+
+let isSeeking = false;
+
+function setPlayIcon(isPlaying) {
+  playIcon.src = isPlaying ? 'assets/icons/pause.svg' : 'assets/icons/play.svg';
+}
+
+btnPlay.addEventListener('click', () => {
+  if (audio.paused) {
+    audio.play();
+  } else {
+    audio.pause();
+  }
+});
+audio.addEventListener('play', () => setPlayIcon(true));
+audio.addEventListener('pause', () => setPlayIcon(false));
+
+audio.addEventListener('loadedmetadata', () => {
+  durationTimeEl.textContent = formatSeconds(audio.duration);
+});
+
+audio.addEventListener('timeupdate', () => {
+  if (isSeeking) return;
+  currentTimeEl.textContent = formatSeconds(audio.currentTime);
+  const pct = audio.duration ? (audio.currentTime / audio.duration) * 1000 : 0;
+  progress.value = pct;
+  progress.style.setProperty('--progress-pct', (pct / 10) + '%');
+  updateActiveTrack();
+});
+
+progress.addEventListener('input', () => {
+  isSeeking = true;
+  const pct = progress.value / 1000;
+  const seekTime = pct * (audio.duration || 0);
+  currentTimeEl.textContent = formatSeconds(seekTime);
+  progress.style.setProperty('--progress-pct', (progress.value / 10) + '%');
+});
+progress.addEventListener('change', () => {
+  const pct = progress.value / 1000;
+  audio.currentTime = pct * (audio.duration || 0);
+  isSeeking = false;
+});
+
+function getCurrentTrackIndex(time) {
+  let idx = 0;
+  for (let i = 0; i < trackStartSeconds.length; i++) {
+    if (time >= trackStartSeconds[i]) idx = i;
+  }
+  return idx;
+}
+
+function updateActiveTrack() {
+  const idx = getCurrentTrackIndex(audio.currentTime);
+  const buttons = trackGrid.querySelectorAll('button');
+  buttons.forEach((b, i) => b.classList.toggle('active', i === idx));
+}
+
+btnNext.addEventListener('click', () => {
+  const idx = getCurrentTrackIndex(audio.currentTime);
+  const nextIdx = Math.min(idx + 1, trackStartSeconds.length - 1);
+  audio.currentTime = trackStartSeconds[nextIdx];
+});
+
+btnPrev.addEventListener('click', () => {
+  const idx = getCurrentTrackIndex(audio.currentTime);
+  // Nếu đã phát quá 3 giây trong bài hiện tại -> quay về đầu bài hiện tại (giống CD player thật)
+  if (audio.currentTime - trackStartSeconds[idx] > 3) {
+    audio.currentTime = trackStartSeconds[idx];
+  } else {
+    const prevIdx = Math.max(idx - 1, 0);
+    audio.currentTime = trackStartSeconds[prevIdx];
+  }
+});
+
+// ---------- Render 10 nút số ----------
+CONFIG.audio.trackStarts.forEach((_, i) => {
+  const btn = document.createElement('button');
+  btn.textContent = String(i + 1);
+  btn.addEventListener('click', () => {
+    audio.currentTime = trackStartSeconds[i];
+    audio.play();
+  });
+  trackGrid.appendChild(btn);
+});
+updateActiveTrack();
+
+// ---------- Nút "Nghe & Tải về" scroll mượt ----------
+document.getElementById('scroll-cta').addEventListener('click', () => {
+  document.getElementById('streaming-list').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+// ---------- Render Streaming + Download (mảng linh hoạt) ----------
+const streamingList = document.getElementById('streaming-list');
+const allButtons = [...CONFIG.streaming, CONFIG.download];
+
+allButtons.forEach(item => {
+  const a = document.createElement('a');
+  a.href = item.url;
+  a.target = "_blank";
+  a.rel = "noopener";
+  a.style.background = item.color;
+  a.style.color = item.textColor;
+  if (item.icon) {
+    const img = document.createElement('img');
+    img.src = item.icon;
+    img.alt = "";
+    a.appendChild(img);
+  }
+  const span = document.createElement('span');
+  span.textContent = item.name;
+  a.appendChild(span);
+  streamingList.appendChild(a);
+});
+
+// ---------- Render Social icons cuối trang ----------
+const socialsList = document.getElementById('socials-list');
+
+function addSocial(href, iconSrc, label) {
+  const a = document.createElement('a');
+  a.href = href;
+  if (href.startsWith('http')) {
+    a.target = "_blank";
+    a.rel = "noopener";
+  }
+  a.setAttribute('aria-label', label);
+  const img = document.createElement('img');
+  img.src = iconSrc;
+  img.alt = "";
+  a.appendChild(img);
+  socialsList.appendChild(a);
+}
+
+addSocial(CONFIG.social.facebook, 'assets/icons/facebook.svg', 'Facebook');
+addSocial(CONFIG.social.instagram, 'assets/icons/instagram.svg', 'Instagram');
+addSocial('mailto:' + CONFIG.social.email, 'assets/icons/mail.svg', 'Gmail');
+</script>
+
+</body>
+</html>
