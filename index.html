@@ -92,6 +92,20 @@
     transition: background 0.3s ease;
   }
 
+  /* Lớp phủ màu riêng theo từng bài — tách biệt với overlay sáng/tối ở trên,
+     dùng mix-blend-mode để hoà vào ảnh nền chứ không che kín, và transition dài hơn
+     một chút để cảm giác chuyển bài mượt, không giật cục. */
+  .bg-color-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: transparent;
+    mix-blend-mode: soft-light;
+    opacity: 0.65;
+    transition: background-color 1.2s ease;
+    pointer-events: none;
+  }
+
   .page {
     width: 100%;
     max-width: 480px;
@@ -417,6 +431,7 @@
 
 <div class="bg-layer"></div>
 <div class="bg-overlay"></div>
+<div class="bg-color-overlay" id="bg-color-overlay"></div>
 
 <div class="page">
 
@@ -497,6 +512,14 @@ const CONFIG = {
       "14:51.526", "18:29.083", "22:02.794", "25:30.737", "30:36.672"
     ],
   },
+
+  // ---- Màu phủ nền riêng cho từng bài (đổi bài sẽ đổi màu, tự chuyển mượt) ----
+  // Phải có đúng 10 màu, theo đúng thứ tự bài 1 → bài 10.
+  // Đổi màu nào chỉ cần sửa mã hex tương ứng, không cần biết code.
+  trackColors: [
+    "#c9b8a8", "#ff3131", "#ff751f", "#10bb82", "#0081cc",
+    "#0025cc", "#6b1fad", "#cc007e", "#ffd659", "#fff3c2",
+  ],
 
   // ---- Lời bài hát (lyrics) từng bài, bấm nút "Lyrics" cạnh Play sẽ hiện ra ----
   // Phải có đúng 10 dòng, theo đúng thứ tự bài 1 → bài 10, khớp với thứ tự ở trackStarts trên.
@@ -1162,6 +1185,18 @@ function updateActiveTrack() {
   const buttons = trackGrid.querySelectorAll('button');
   buttons.forEach((b, i) => b.classList.toggle('active', i === idx));
   if (lyricsMode) renderLyrics(idx);
+  applyTrackColor(idx);
+}
+
+// ---------- Đổi màu phủ nền theo bài đang phát ----------
+const bgColorOverlay = document.getElementById('bg-color-overlay');
+let lastColorTrackIdx = -1;
+
+function applyTrackColor(idx) {
+  if (idx === lastColorTrackIdx) return; // tránh set lại liên tục mỗi timeupdate, chỉ đổi khi sang bài mới
+  lastColorTrackIdx = idx;
+  const color = CONFIG.trackColors[idx] || CONFIG.trackColors[0];
+  bgColorOverlay.style.backgroundColor = color;
 }
 
 // ---------- Lyrics: chuyển đổi lưới số <-> khung lyrics ----------
