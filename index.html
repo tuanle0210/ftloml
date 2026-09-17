@@ -985,25 +985,28 @@ const trackStartSeconds = CONFIG.audio.trackStarts.map(parseTimeToSeconds);
 const soundwaveCanvas = document.getElementById('soundwave');
 const swCtx = soundwaveCanvas.getContext('2d');
 
-const SW_BAR_COUNT = 32; // = fftSize/2 bên dưới, phải khớp nhau
+const SW_BAR_COUNT = 32;
 const swIdleValues = new Array(SW_BAR_COUNT).fill(6);
 
-let audioCtx = null;
-let analyser = null;
-let swDataArray = null;
-let audioGraphReady = false;
-
-function ensureAudioGraph() {
-  if (audioGraphReady) return;
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const sourceNode = audioCtx.createMediaElementSource(audio);
-  analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 64; // -> frequencyBinCount = 32, khớp SW_BAR_COUNT
-  analyser.smoothingTimeConstant = 0.75;
-  swDataArray = new Uint8Array(analyser.frequencyBinCount);
-  sourceNode.connect(analyser);
-  analyser.connect(audioCtx.destination); // bắt buộc, nếu không nhạc sẽ câm
-  audioGraphReady = true;
+// GHI CHÚ QUAN TRỌNG: đã bỏ hẳn Web Audio API (AudioContext + AnalyserNode) ở đây.
+// Lý do: mp3 đang nằm khác domain (GitHub Release) và server đó không trả header CORS.
+// Nếu vẫn cố nối MediaElementAudioSource -> AnalyserNode -> destination để lấy dữ liệu
+// vẽ soundwave thật, trình duyệt buộc TOÀN BỘ luồng âm thanh output ra số 0 — tức là
+// mất tiếng hoàn toàn, không phải chỉ mỗi soundwave đứng yên như dự tính ban đầu.
+// Đây là quy định bảo mật cứng của trình duyệt, không lách được nếu giữ nguyên kiến trúc
+// này với file khác domain. Vì nghe được nhạc quan trọng hơn hiệu ứng, soundwave bên dưới
+// chuyển sang kiểu GIẢ LẬP (chuyển động có nhịp khi đang phát) thay vì đọc dữ liệu thật.
+// Muốn có soundwave phản ứng THẬT theo nhạc, cách duy nhất là đưa file mp3 vào cùng
+// domain (thư mục assets/ trong chính repo) thay vì để ở GitHub Release.
+function generateFakeWaveValues() {
+  const t = performance.now() / 200;
+  const values = new Array(SW_BAR_COUNT);
+  for (let i = 0; i < SW_BAR_COUNT; i++) {
+    const wave = Math.sin(t + i * 0.5) * 0.5 + 0.5;
+    const noise = Math.random() * 0.3;
+    values[i] = Math.min(255, Math.max(10, (wave * 0.7 + noise) * 255));
+  }
+  return values;
 }
 
 function resizeSoundwave() {
@@ -1055,9 +1058,8 @@ function drawSoundwave(values) {
 }
 
 function soundwaveLoop() {
-  if (!audio.paused && analyser) {
-    analyser.getByteFrequencyData(swDataArray);
-    drawSoundwave(swDataArray);
+  if (!audio.paused) {
+    drawSoundwave(generateFakeWaveValues());
   } else {
     drawSoundwave(swIdleValues);
   }
@@ -1106,10 +1108,6 @@ function setCoverSpinning(isPlaying) {
 }
 
 btnPlay.addEventListener('click', () => {
-  ensureAudioGraph();
-  if (audioCtx.state === 'suspended') {
-    audioCtx.resume();
-  }
   if (audio.paused) {
     audio.play();
   } else {
