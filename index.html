@@ -1066,10 +1066,12 @@ function soundwaveLoop() {
 
 
 const audio = document.getElementById('audio');
-// File mp3 giờ nằm ở domain khác (GitHub Release, objects.githubusercontent.com)
-// nên PHẢI bật crossOrigin TRƯỚC khi gán src, nếu không sẽ dính lỗi CORS
-// khiến audio.play() bị chặn hoàn toàn khi Web Audio API cố đọc dữ liệu để vẽ soundwave.
-audio.crossOrigin = "anonymous";
+// LƯU Ý: đã thử bật audio.crossOrigin = "anonymous" để soundwave đọc được dữ liệu,
+// nhưng GitHub Release asset không trả về header CORS phù hợp, nên bật crossOrigin
+// khiến trình duyệt chặn luôn cả việc TẢI FILE (không phát được nhạc).
+// Vì phát nhạc quan trọng hơn hiệu ứng soundwave, tạm thời KHÔNG bật crossOrigin.
+// Đánh đổi: thanh soundwave sẽ đứng yên (không nhảy theo nhạc) vì Web Audio API
+// không đọc được dữ liệu tần số từ nguồn cross-origin không có CORS.
 audio.src = CONFIG.audio.src;
 soundwaveLoop();
 
