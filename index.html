@@ -484,16 +484,17 @@ const CONFIG = {
 
   // ---- File nhạc + mốc thời gian từng bài ----
   audio: {
-    // Đường dẫn file mp3 gộp 10 bài. Khi có bản thật, upload đè đúng tên file này lên GitHub
-    // (không cần đổi dòng này) trừ khi bạn đổi tên file khác đi.
-    src: "assets/befree.mp3",
+    // File mp3 gộp 10 bài giờ được host qua GitHub Release (repo ftloml, tag v1.0)
+    // thay vì nằm trong thư mục assets/ của repo, vì file vượt quá 25MB giới hạn
+    // upload thường của GitHub. Nếu sau này đổi sang release/tag khác, nhớ cập nhật link này.
+    src: "https://github.com/tuanle0210/ftloml/releases/download/v1.0/ftloml.mp3",
 
-    // Mốc thời gian BẮT ĐẦU của từng bài, định dạng "phút:giây".
-    // ĐANG LÀ PLACEHOLDER chia đều tạm — ĐIỀN LẠI SỐ THẬT khi có file mp3 gộp chính thức.
+    // Mốc thời gian BẮT ĐẦU của từng bài, định dạng "phút:giây.mili".
+    // Đã cập nhật theo timestamp thật do người dùng cung cấp.
     // Phải có đúng 10 mốc, theo đúng thứ tự bài 1 → bài 10.
     trackStarts: [
-      "0:00", "0:22", "0:44", "1:06", "1:28",
-      "1:50", "2:12", "2:34", "2:56", "3:18"
+      "0:00.000", "0:58.550", "4:38.910", "8:08.443", "11:25.004",
+      "14:51.526", "18:29.083", "22:02.794", "25:30.737", "30:36.672"
     ],
   },
 
@@ -1033,6 +1034,12 @@ function getAccentColor() {
 function drawSoundwave(values) {
   const rect = soundwaveCanvas.getBoundingClientRect();
   const w = rect.width, h = rect.height;
+  // Guard: lúc trang vừa load, canvas có thể chưa có kích thước (w hoặc h = 0)
+  // vì layout/CSS chưa kịp áp dụng xong. Nếu vẽ lúc này, phép tính bề rộng cột
+  // sóng sẽ bị âm và làm crash script (arcTo IndexSizeError), khiến toàn bộ
+  // code phía sau (track grid, streaming buttons) không kịp chạy. Bỏ qua frame
+  // này, đợi frame kế tiếp khi canvas đã có kích thước thật.
+  if (w <= 0 || h <= 0) return;
   swCtx.clearRect(0, 0, w, h);
   const gap = 3;
   const barWidth = (w - gap * (values.length - 1)) / values.length;
@@ -1059,6 +1066,10 @@ function soundwaveLoop() {
 
 
 const audio = document.getElementById('audio');
+// File mp3 giờ nằm ở domain khác (GitHub Release, objects.githubusercontent.com)
+// nên PHẢI bật crossOrigin TRƯỚC khi gán src, nếu không sẽ dính lỗi CORS
+// khiến audio.play() bị chặn hoàn toàn khi Web Audio API cố đọc dữ liệu để vẽ soundwave.
+audio.crossOrigin = "anonymous";
 audio.src = CONFIG.audio.src;
 soundwaveLoop();
 
