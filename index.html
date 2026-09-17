@@ -1021,15 +1021,38 @@ const swIdleValues = new Array(SW_BAR_COUNT).fill(6);
 // chuyển sang kiểu GIẢ LẬP (chuyển động có nhịp khi đang phát) thay vì đọc dữ liệu thật.
 // Muốn có soundwave phản ứng THẬT theo nhạc, cách duy nhất là đưa file mp3 vào cùng
 // domain (thư mục assets/ trong chính repo) thay vì để ở GitHub Release.
-function generateFakeWaveValues() {
-  const t = performance.now() / 200;
+// Cơ chế mượt: có "giá trị mục tiêu" (targetValues) đổi chậm hơn theo nhịp (mỗi ~260ms),
+// còn "giá trị hiện tại" (currentValues, được vẽ mỗi frame) chỉ trượt dần về phía mục tiêu
+// (lerp) thay vì nhảy random đột ngột mỗi frame — nhìn mượt như sóng thật hơn nhiều.
+let swCurrentValues = swIdleValues.slice();
+let swTargetValues = swIdleValues.slice();
+let swTargetTimer = null;
+
+function pickNewTargetValues() {
+  const t = performance.now() / 600;
   const values = new Array(SW_BAR_COUNT);
   for (let i = 0; i < SW_BAR_COUNT; i++) {
-    const wave = Math.sin(t + i * 0.5) * 0.5 + 0.5;
-    const noise = Math.random() * 0.3;
-    values[i] = Math.min(255, Math.max(10, (wave * 0.7 + noise) * 255));
+    const wave = Math.sin(t + i * 0.4) * 0.5 + 0.5;
+    const noise = Math.random() * 0.25;
+    values[i] = Math.min(255, Math.max(10, (wave * 0.75 + noise) * 255));
   }
   return values;
+}
+
+function startFakeWaveTargetLoop() {
+  if (swTargetTimer) return;
+  swTargetValues = pickNewTargetValues();
+  swTargetTimer = setInterval(() => {
+    swTargetValues = pickNewTargetValues();
+  }, 260);
+}
+
+function stopFakeWaveTargetLoop() {
+  if (swTargetTimer) {
+    clearInterval(swTargetTimer);
+    swTargetTimer = null;
+  }
+  swTargetValues = swIdleValues.slice();
 }
 
 function resizeSoundwave() {
@@ -1081,11 +1104,11 @@ function drawSoundwave(values) {
 }
 
 function soundwaveLoop() {
-  if (!audio.paused) {
-    drawSoundwave(generateFakeWaveValues());
-  } else {
-    drawSoundwave(swIdleValues);
+  const lerpSpeed = 0.09; // càng nhỏ càng mượt/chậm rãi, càng lớn càng nhanh bám theo mục tiêu
+  for (let i = 0; i < SW_BAR_COUNT; i++) {
+    swCurrentValues[i] += (swTargetValues[i] - swCurrentValues[i]) * lerpSpeed;
   }
+  drawSoundwave(swCurrentValues);
   requestAnimationFrame(soundwaveLoop);
 }
 
@@ -1140,10 +1163,12 @@ btnPlay.addEventListener('click', () => {
 audio.addEventListener('play', () => {
   setPlayIcon(true);
   setCoverSpinning(true);
+  startFakeWaveTargetLoop();
 });
 audio.addEventListener('pause', () => {
   setPlayIcon(false);
   setCoverSpinning(false);
+  stopFakeWaveTargetLoop();
 });
 
 audio.addEventListener('loadedmetadata', () => {
