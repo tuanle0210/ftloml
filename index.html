@@ -109,18 +109,21 @@
   /* Hiệu ứng "bập bùng" liên tục theo năng lượng tổng thể của bài hát — khác với
      flash-overlay bên dưới (chỉ loé mạnh khi có nhịp bass đột ngột), lớp này luôn
      nhấp nháy nhẹ suốt lúc phát nhạc, sáng hơn khi đoạn nhạc to/dồn dập, mờ đi khi
-     đoạn nhạc nhẹ nhàng — giống ánh lửa bập bùng đều theo nhịp điệu bài hát. Opacity
-     được JS set trực tiếp mỗi khung hình (không dùng transition CSS ở đây) để phản
-     ứng tức thời theo nhạc; JS bên dưới tự làm mượt (lerp) qua nhiều khung hình liền
-     nhau nên không bị giật cục. Cùng z-index âm với các lớp nền khác — không ảnh
-     hưởng khung nội dung chính.*/
+     đoạn nhạc nhẹ nhàng — giống ánh lửa bập bùng đều theo nhịp điệu bài hát.
+     Dùng nền ĐEN + mix-blend-mode: multiply (thay vì trắng + screen như trước) để
+     GIỮ NGUYÊN tông màu gốc của ảnh nền, chỉ làm nền tối/sáng lên xuống nhẹ trong
+     chính dải màu đó — tránh bị nhạt/bạc màu do hoà thêm ánh trắng lên trên.
+     Opacity được JS set trực tiếp mỗi khung hình (không dùng transition CSS ở đây)
+     để phản ứng tức thời theo nhạc; JS bên dưới tự làm mượt (lerp) qua nhiều khung
+     hình liền nhau nên không bị giật cục. Cùng z-index âm với các lớp nền khác —
+     không ảnh hưởng khung nội dung chính.*/
   .flicker-overlay {
     position: fixed;
     inset: 0;
     z-index: -1;
-    background: #ffffff;
+    background: #000000;
     opacity: 0;
-    mix-blend-mode: screen;
+    mix-blend-mode: multiply;
     pointer-events: none;
   }
 
@@ -1268,7 +1271,7 @@ function updateFlicker() {
     // Thêm chút nhiễu ngẫu nhiên nhỏ để trông tự nhiên như ánh lửa thật, không
     // đều tăm tắp theo đúng 1 công thức toán học (sẽ trông giả, máy móc).
     const noise = Math.random() * 0.025;
-    const flickerTarget = Math.min(0.22, (avgEnergy / 255) * 0.28) + noise;
+    const flickerTarget = Math.min(0.16, (avgEnergy / 255) * 0.2) + noise;
 
     // Lerp (trượt dần) qua nhiều khung hình để chuyển mượt, không giật cục —
     // giống cách swCurrentValues của soundwave đang làm.
@@ -1291,11 +1294,11 @@ const FLASH_COOLDOWN_MS = 180; // khoảng cách tối thiểu giữa 2 lần ch
 
 function triggerFlash() {
   flashOverlay.style.transition = 'none';
-  flashOverlay.style.opacity = '0.55';
+  flashOverlay.style.opacity = '0.16';
   // Ép trình duyệt áp dụng ngay opacity ở trên trước khi bắt đầu chuyển dần về 0,
   // nếu không 2 dòng set opacity liền nhau sẽ bị gộp lại thành 1 bước, không thấy hiệu ứng.
   void flashOverlay.offsetWidth;
-  flashOverlay.style.transition = 'opacity 0.25s ease-out';
+  flashOverlay.style.transition = 'opacity 0.12s ease-out';
   flashOverlay.style.opacity = '0';
 }
 
