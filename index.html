@@ -172,7 +172,7 @@
     border-radius: 20px;
     box-shadow: 0 12px 30px rgba(0,0,0,0.25);
     display: block;
-    animation: cover-spin 0.35s linear infinite;
+    animation: cover-spin 0.15s linear infinite;
     animation-play-state: paused;
     transition: border-radius 0.4s ease;
   }
@@ -185,6 +185,10 @@
        trên Chrome/Firefox (mask-image) lẫn Safari (-webkit-mask-image). */
     mask-image: radial-gradient(circle closest-side at center, black 0%, black 13%, white 14%, white 100%);
     -webkit-mask-image: radial-gradient(circle closest-side at center, black 0%, black 13%, white 14%, white 100%);
+    /* Blur nhẹ để giả lập vệt mờ do quay nhanh (motion blur), giống cảm giác nhìn
+       một cái đĩa CD thật đang chạy tít — bản thân CSS animation không tự tạo mờ,
+       nên cần cộng thêm filter này mới có cảm giác "nhòe vì quay nhanh". */
+    filter: blur(1.3px);
   }
   /* Vòng nhẫn kẹp đĩa — nằm giữa lỗ khoét thật và mặt đĩa, làm mờ (blur) đúng phần
      ảnh bìa nó đè lên, giả lập lớp nhựa mờ quanh lỗ CD thật. Bản thân vòng nhẫn
