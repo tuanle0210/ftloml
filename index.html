@@ -106,6 +106,42 @@
     pointer-events: none;
   }
 
+  /* Hiệu ứng "bập bùng" liên tục theo năng lượng tổng thể của bài hát — khác với
+     flash-overlay bên dưới (chỉ loé mạnh khi có nhịp bass đột ngột), lớp này luôn
+     nhấp nháy nhẹ suốt lúc phát nhạc, sáng hơn khi đoạn nhạc to/dồn dập, mờ đi khi
+     đoạn nhạc nhẹ nhàng — giống ánh lửa bập bùng đều theo nhịp điệu bài hát. Opacity
+     được JS set trực tiếp mỗi khung hình (không dùng transition CSS ở đây) để phản
+     ứng tức thời theo nhạc; JS bên dưới tự làm mượt (lerp) qua nhiều khung hình liền
+     nhau nên không bị giật cục. Cùng z-index âm với các lớp nền khác — không ảnh
+     hưởng khung nội dung chính.*/
+  .flicker-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: #ffffff;
+    opacity: 0;
+    mix-blend-mode: screen;
+    pointer-events: none;
+  }
+
+  /* Hiệu ứng "sấm chớp" theo nhịp bass — CHỈ tác động lên lớp NỀN phía sau (cùng
+     nhóm z-index âm với bg-layer/bg-overlay/bg-color-overlay), không che hay làm
+     sáng các khung nội dung chính (.player, nút bấm...) vì những khung đó luôn
+     nằm trong luồng bình thường của trang, tự động vẽ đè lên trên các lớp z-index
+     âm này. Mặc định trong suốt (opacity 0), mỗi khi phát hiện 1 nhịp bass mạnh,
+     opacity tăng vọt rồi tự chuyển dần về 0 — tạo cảm giác loé sáng rồi tắt dần.
+     mix-blend-mode: screen giúp làm sáng đúng phần nền phía dưới nó thay vì che
+     trắng xoá mất ảnh nền. */
+  .flash-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: #ffffff;
+    opacity: 0;
+    mix-blend-mode: screen;
+    pointer-events: none;
+  }
+
   .page {
     width: 100%;
     max-width: 480px;
@@ -492,6 +528,8 @@
 <div class="bg-layer"></div>
 <div class="bg-overlay"></div>
 <div class="bg-color-overlay" id="bg-color-overlay"></div>
+<div class="flicker-overlay" id="flicker-overlay"></div>
+<div class="flash-overlay" id="flash-overlay"></div>
 
 <div class="page">
 
@@ -606,7 +644,7 @@ const CONFIG = {
   // Dán lời bài hát trực tiếp vào giữa 2 dấu ` `, xuống dòng bình thường bằng phím Enter là được,
   // không cần gõ thêm ký hiệu gì cả.
   lyrics: [
-    `(Intro)`,
+    `(Intro — không lời)`,
     `You, you, you
 You, you, you
 You, you, you
@@ -1215,15 +1253,88 @@ function ensureAudioCtxRunning() {
   }
 }
 
+// ---------- Hiệu ứng "bập bùng" nền liên tục theo năng lượng tổng thể bài hát ----------
+const flickerOverlay = document.getElementById('flicker-overlay');
+let flickerCurrent = 0;
+
+function updateFlicker() {
+  if (analyserReady && !audio.paused) {
+    // Tính năng lượng trung bình của TOÀN BỘ dải tần (không chỉ riêng bass như
+    // phần chớp sấm chớp ở trên) để đại diện cho độ "to nhỏ" tổng thể của nhạc.
+    let totalEnergy = 0;
+    for (let i = 0; i < freqData.length; i++) totalEnergy += freqData[i];
+    const avgEnergy = totalEnergy / freqData.length; // 0-255
+
+    // Thêm chút nhiễu ngẫu nhiên nhỏ để trông tự nhiên như ánh lửa thật, không
+    // đều tăm tắp theo đúng 1 công thức toán học (sẽ trông giả, máy móc).
+    const noise = Math.random() * 0.025;
+    const flickerTarget = Math.min(0.22, (avgEnergy / 255) * 0.28) + noise;
+
+    // Lerp (trượt dần) qua nhiều khung hình để chuyển mượt, không giật cục —
+    // giống cách swCurrentValues của soundwave đang làm.
+    flickerCurrent += (flickerTarget - flickerCurrent) * 0.15;
+  } else {
+    // Không phát nhạc hoặc Web Audio API không khả dụng -> tắt dần về 0
+    flickerCurrent += (0 - flickerCurrent) * 0.1;
+  }
+  flickerOverlay.style.opacity = flickerCurrent.toFixed(3);
+}
+
+// ---------- Hiệu ứng "sấm chớp" nền theo nhịp bass ----------
+// Dùng chính dữ liệu tần số thật (freqData) đang đọc cho soundwave, chỉ lấy vài
+// dải tần THẤP nhất (bass) để dò các nhịp đập mạnh (kick trống, beat dồn dập).
+const flashOverlay = document.getElementById('flash-overlay');
+const BASS_BIN_COUNT = 3; // vài bin tần số thấp nhất trong 32 dải, đại diện cho bass
+let bassBaseline = 20;    // mức nền trung bình, tự thích nghi theo từng đoạn nhạc to/nhỏ
+let lastFlashTime = 0;
+const FLASH_COOLDOWN_MS = 180; // khoảng cách tối thiểu giữa 2 lần chớp, tránh chớp liên tục rối mắt
+
+function triggerFlash() {
+  flashOverlay.style.transition = 'none';
+  flashOverlay.style.opacity = '0.55';
+  // Ép trình duyệt áp dụng ngay opacity ở trên trước khi bắt đầu chuyển dần về 0,
+  // nếu không 2 dòng set opacity liền nhau sẽ bị gộp lại thành 1 bước, không thấy hiệu ứng.
+  void flashOverlay.offsetWidth;
+  flashOverlay.style.transition = 'opacity 0.25s ease-out';
+  flashOverlay.style.opacity = '0';
+}
+
+function checkBassFlash() {
+  if (!analyserReady || audio.paused) return;
+  let bassSum = 0;
+  for (let i = 0; i < BASS_BIN_COUNT; i++) {
+    bassSum += freqData[i] || 0;
+  }
+  const bassEnergy = bassSum / BASS_BIN_COUNT;
+
+  // Cập nhật baseline chậm rãi (exponential moving average) để tự thích nghi —
+  // đoạn nhạc to đều cả bài vẫn chớp đúng lúc có đỉnh, đoạn nhạc nhỏ đều cũng
+  // không bị im lặng hoàn toàn suốt bài.
+  bassBaseline += (bassEnergy - bassBaseline) * 0.02;
+
+  const now = performance.now();
+  if (
+    bassEnergy > bassBaseline * 1.4 &&
+    bassEnergy > 90 &&
+    now - lastFlashTime > FLASH_COOLDOWN_MS
+  ) {
+    lastFlashTime = now;
+    triggerFlash();
+  }
+}
+
 function soundwaveLoop() {
   let values;
   let lerpSpeed;
+
+  updateFlicker(); // hiệu ứng bập bùng liên tục, cập nhật mỗi khung hình bất kể đang play hay pause
 
   if (analyserReady && !audio.paused) {
     // Đang phát nhạc và Web Audio API hoạt động bình thường -> dùng dữ liệu tần số thật
     analyser.getByteFrequencyData(freqData);
     values = freqData;
     lerpSpeed = 0.35; // dữ liệu thật đã có nhịp riêng, chỉ cần lerp nhẹ cho mượt khung hình
+    checkBassFlash(); // dò nhịp bass mạnh để kích hoạt hiệu ứng chớp sáng nền
   } else if (analyserReady) {
     // Web Audio API hoạt động nhưng đang tạm dừng -> để các cột về mức nghỉ
     values = swIdleValues;
