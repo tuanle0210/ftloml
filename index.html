@@ -13,7 +13,7 @@
 <meta property="og:type" content="music.song">
 <meta property="og:title" content="For the Loves of My Lives — Tuan Le">
 <meta property="og:description" content="Nghe và tải về album mới nhất của Tuan Le">
-<meta property="og:image" content="https://tuanle0210.github.io/ftloml/assets/cover.png">
+<meta property="og:image" content="https://tuanle0210.github.io/ftloml/assets/cover.jpg">
 <meta property="og:url" content="https://tuanle0210.github.io/ftloml/">
 <meta name="twitter:card" content="summary_large_image">
 
@@ -499,9 +499,9 @@ const CONFIG = {
 
   // ---- File nhạc + mốc thời gian từng bài ----
   audio: {
-    // File mp3 gộp 10 bài giờ được host qua GitHub Release (repo ftloml, tag v1.0)
-    // thay vì nằm trong thư mục assets/ của repo, vì file vượt quá 25MB giới hạn
-    // upload thường của GitHub. Nếu sau này đổi sang release/tag khác, nhớ cập nhật link này.
+    // File mp3 gộp 10 bài nằm ngay trong assets/ của repo (same-origin với trang này),
+    // nên không còn dính CORS/redirect gì nữa — vừa phát nhạc ổn định trên mọi thiết bị,
+    // vừa cho phép soundwave đọc dữ liệu tần số THẬT (xem phần Web Audio API bên dưới).
     src: "assets/ftloml.mp3",
 
     // Mốc thời gian BẮT ĐẦU của từng bài, định dạng "phút:giây.mili".
@@ -1004,26 +1004,22 @@ function formatSeconds(sec) {
 
 const trackStartSeconds = CONFIG.audio.trackStarts.map(parseTimeToSeconds);
 
-// ---------- Soundwave (nhảy thật theo âm thanh đang phát) ----------
+// ---------- Soundwave ----------
 const soundwaveCanvas = document.getElementById('soundwave');
 const swCtx = soundwaveCanvas.getContext('2d');
 
 const SW_BAR_COUNT = 32;
 const swIdleValues = new Array(SW_BAR_COUNT).fill(6);
 
-// GHI CHÚ QUAN TRỌNG: đã bỏ hẳn Web Audio API (AudioContext + AnalyserNode) ở đây.
-// Lý do: mp3 đang nằm khác domain (GitHub Release) và server đó không trả header CORS.
-// Nếu vẫn cố nối MediaElementAudioSource -> AnalyserNode -> destination để lấy dữ liệu
-// vẽ soundwave thật, trình duyệt buộc TOÀN BỘ luồng âm thanh output ra số 0 — tức là
-// mất tiếng hoàn toàn, không phải chỉ mỗi soundwave đứng yên như dự tính ban đầu.
-// Đây là quy định bảo mật cứng của trình duyệt, không lách được nếu giữ nguyên kiến trúc
-// này với file khác domain. Vì nghe được nhạc quan trọng hơn hiệu ứng, soundwave bên dưới
-// chuyển sang kiểu GIẢ LẬP (chuyển động có nhịp khi đang phát) thay vì đọc dữ liệu thật.
-// Muốn có soundwave phản ứng THẬT theo nhạc, cách duy nhất là đưa file mp3 vào cùng
-// domain (thư mục assets/ trong chính repo) thay vì để ở GitHub Release.
-// Cơ chế mượt: có "giá trị mục tiêu" (targetValues) đổi chậm hơn theo nhịp (mỗi ~260ms),
-// còn "giá trị hiện tại" (currentValues, được vẽ mỗi frame) chỉ trượt dần về phía mục tiêu
-// (lerp) thay vì nhảy random đột ngột mỗi frame — nhìn mượt như sóng thật hơn nhiều.
+// GHI CHÚ: file mp3 giờ nằm CÙNG DOMAIN với trang (assets/ trong repo), nên không còn
+// bị chặn CORS như hồi còn host qua GitHub Release nữa. Vì vậy soundwave bên dưới đọc
+// dữ liệu tần số THẬT từ nhạc đang phát, thông qua Web Audio API (AudioContext +
+// AnalyserNode), thay vì kiểu giả lập ngẫu nhiên như trước.
+//
+// Cơ chế giả lập cũ (pickNewTargetValues/startFakeWaveTargetLoop/stopFakeWaveTargetLoop)
+// vẫn được GIỮ LẠI làm phương án dự phòng — nếu trình duyệt nào đó không hỗ trợ Web Audio
+// API (rất hiếm ở thời điểm hiện tại), soundwave sẽ tự động rơi về kiểu giả lập này thay
+// vì đứng im hoàn toàn.
 let swCurrentValues = swIdleValues.slice();
 let swTargetValues = swIdleValues.slice();
 let swTargetTimer = null;
@@ -1103,10 +1099,63 @@ function drawSoundwave(values) {
   }
 }
 
+// ---------- Web Audio API: đọc dữ liệu tần số thật từ nhạc đang phát ----------
+// Phải khởi tạo AudioContext bên trong một hành động của người dùng (click/tap),
+// nên setupAudioAnalyser()/ensureAudioCtxRunning() được gọi trong các nút Play và
+// nút số bài hát bên dưới, không gọi tự động lúc trang vừa load.
+let audioCtx = null;
+let analyser = null;
+let freqData = null;
+let analyserReady = false;
+
+function setupAudioAnalyser() {
+  if (audioCtx) return; // đã khởi tạo rồi thì thôi, tránh tạo lại nhiều lần
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioCtx.createMediaElementSource(audio);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 64; // fftSize/2 = 32 dải tần, khớp đúng SW_BAR_COUNT
+    analyser.smoothingTimeConstant = 0.8; // làm mượt dữ liệu ngay trong AnalyserNode
+    freqData = new Uint8Array(analyser.frequencyBinCount);
+    source.connect(analyser);
+    analyser.connect(audioCtx.destination); // bắt buộc phải nối ra destination thì mới NGHE ĐƯỢC tiếng
+    analyserReady = true;
+  } catch (e) {
+    console.warn('Trinh duyet khong ho tro Web Audio API, dung soundwave gia lap thay the.', e);
+    analyserReady = false;
+  }
+}
+
+function ensureAudioCtxRunning() {
+  setupAudioAnalyser();
+  // Một số trình duyệt (đặc biệt Safari/iOS) tạo AudioContext ở trạng thái "suspended"
+  // cho đến khi có tương tác người dùng — cần resume() thì mới thực sự chạy.
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}
+
 function soundwaveLoop() {
-  const lerpSpeed = 0.09; // càng nhỏ càng mượt/chậm rãi, càng lớn càng nhanh bám theo mục tiêu
+  let values;
+  let lerpSpeed;
+
+  if (analyserReady && !audio.paused) {
+    // Đang phát nhạc và Web Audio API hoạt động bình thường -> dùng dữ liệu tần số thật
+    analyser.getByteFrequencyData(freqData);
+    values = freqData;
+    lerpSpeed = 0.35; // dữ liệu thật đã có nhịp riêng, chỉ cần lerp nhẹ cho mượt khung hình
+  } else if (analyserReady) {
+    // Web Audio API hoạt động nhưng đang tạm dừng -> để các cột về mức nghỉ
+    values = swIdleValues;
+    lerpSpeed = 0.12;
+  } else {
+    // Web Audio API không khả dụng -> dùng lại cơ chế giả lập cũ
+    values = swTargetValues;
+    lerpSpeed = 0.09;
+  }
+
   for (let i = 0; i < SW_BAR_COUNT; i++) {
-    swCurrentValues[i] += (swTargetValues[i] - swCurrentValues[i]) * lerpSpeed;
+    swCurrentValues[i] += ((values[i] || 0) - swCurrentValues[i]) * lerpSpeed;
   }
   drawSoundwave(swCurrentValues);
   requestAnimationFrame(soundwaveLoop);
@@ -1114,12 +1163,6 @@ function soundwaveLoop() {
 
 
 const audio = document.getElementById('audio');
-// LƯU Ý: đã thử bật audio.crossOrigin = "anonymous" để soundwave đọc được dữ liệu,
-// nhưng GitHub Release asset không trả về header CORS phù hợp, nên bật crossOrigin
-// khiến trình duyệt chặn luôn cả việc TẢI FILE (không phát được nhạc).
-// Vì phát nhạc quan trọng hơn hiệu ứng soundwave, tạm thời KHÔNG bật crossOrigin.
-// Đánh đổi: thanh soundwave sẽ đứng yên (không nhảy theo nhạc) vì Web Audio API
-// không đọc được dữ liệu tần số từ nguồn cross-origin không có CORS.
 audio.src = CONFIG.audio.src;
 soundwaveLoop();
 
@@ -1154,6 +1197,7 @@ function setCoverSpinning(isPlaying) {
 }
 
 btnPlay.addEventListener('click', () => {
+  ensureAudioCtxRunning();
   if (audio.paused) {
     audio.play();
   } else {
@@ -1163,12 +1207,12 @@ btnPlay.addEventListener('click', () => {
 audio.addEventListener('play', () => {
   setPlayIcon(true);
   setCoverSpinning(true);
-  startFakeWaveTargetLoop();
+  if (!analyserReady) startFakeWaveTargetLoop(); // fallback nếu Web Audio API không dùng được
 });
 audio.addEventListener('pause', () => {
   setPlayIcon(false);
   setCoverSpinning(false);
-  stopFakeWaveTargetLoop();
+  if (!analyserReady) stopFakeWaveTargetLoop();
 });
 
 audio.addEventListener('loadedmetadata', () => {
@@ -1270,6 +1314,7 @@ CONFIG.audio.trackStarts.forEach((_, i) => {
   const btn = document.createElement('button');
   btn.textContent = String(i + 1);
   btn.addEventListener('click', () => {
+    ensureAudioCtxRunning();
     audio.currentTime = trackStartSeconds[i];
     audio.play();
   });
