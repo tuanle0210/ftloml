@@ -172,14 +172,32 @@
     border-radius: 20px;
     box-shadow: 0 12px 30px rgba(0,0,0,0.25);
     display: block;
-    animation: cover-spin 1.4s linear infinite;
+    animation: cover-spin 0.467s linear infinite;
     animation-play-state: paused;
     transition: border-radius 0.4s ease;
   }
   .cover-disc img.spinning {
     border-radius: 50%;
   }
+  /* Vòng nhẫn kẹp đĩa — nằm giữa lỗ đen và mặt đĩa, làm mờ (blur) đúng phần ảnh bìa
+     nó đè lên, giả lập lớp nhựa mờ quanh lỗ CD thật, tách biệt hẳn với vùng in hình bên ngoài. */
+  .cover-ring {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 26%;
+    aspect-ratio: 1 / 1;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.18);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    box-shadow: inset 0 0 6px rgba(0,0,0,0.35), 0 1px 2px rgba(255,255,255,0.25);
+    transform: translate(-50%, -50%) scale(0);
+    transition: transform 0.4s ease;
+    pointer-events: none;
+  }
   /* Lỗ tròn giữa đĩa, giống lỗ spindle của CD thật — đứng yên (không xoay theo ảnh),
+     dùng gradient tối + bóng đổ bên trong để trông có chiều sâu thay vì 1 màu phẳng,
      chỉ hiện ra (scale từ 0 lên 1) đúng lúc ảnh chuyển sang hình tròn khi phát nhạc. */
   .cover-hole {
     position: absolute;
@@ -188,13 +206,13 @@
     width: 13%;
     aspect-ratio: 1 / 1;
     border-radius: 50%;
-    background: var(--card-bg);
-    border: 2px solid rgba(0,0,0,0.15);
-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.25);
+    background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.25), rgba(0,0,0,0.85) 70%);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.6), 0 1px 1px rgba(255,255,255,0.15);
     transform: translate(-50%, -50%) scale(0);
-    transition: transform 0.4s ease, background 0.3s ease;
+    transition: transform 0.4s ease;
     pointer-events: none;
   }
+  .cover-disc img.spinning ~ .cover-ring,
   .cover-disc img.spinning ~ .cover-hole {
     transform: translate(-50%, -50%) scale(1);
   }
@@ -469,6 +487,7 @@
   <div class="cover-wrap">
     <div class="cover-disc">
       <img id="cover-img" src="assets/cover.jpg" alt="">
+      <div class="cover-ring"></div>
       <div class="cover-hole"></div>
     </div>
   </div>
