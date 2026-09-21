@@ -639,7 +639,7 @@ const CONFIG = {
   // Đổi màu nào chỉ cần sửa mã hex tương ứng, không cần biết code.
   trackColors: [
     "#b34552", "#ff3131", "#ff751f", "#10bb82", "#0081cc",
-    "#0025cc", "#6b1fad", "#cc007e", "#ffd659", "#fff3c2",
+    "#0025cc", "#6b1fad", "#cc007e", "#ffd659", "#f7c9d3",
   ],
 
   // ---- Lời bài hát (lyrics) từng bài, bấm nút "Lyrics" cạnh Play sẽ hiện ra ----
@@ -1308,11 +1308,12 @@ const flashOverlay = document.getElementById('flash-overlay');
 const CLIMAX_BIN_COUNT = 60; // mở rộng dải tần (không chỉ riêng bass trầm) — bao quát cả bass lẫn low-mid
                               // (~0-2500Hz với fftSize=1024), khớp hơn với cảm giác "dữ dội, dồn dập tổng
                               // thể" mà mắt thấy trên soundwave, thay vì chỉ mỗi tiếng kick trống trầm
-let climaxShortAvg = 20;  // trung bình "gần đây" (~0.1-0.2 giây) — đại diện cường độ ngay lúc này
-let climaxLongAvg = 20;   // trung bình "nền" trượt rất chậm (~vài giây) — đại diện mức thường ngày của bài
+let climaxRecent = 20; // mượt rất nhẹ theo khung hình hiện tại, gần như phản ánh tức thời
+let climaxPeak = 20;   // "đỉnh" năng lượng gần đây — nhảy lên ngay khi có giá trị cao hơn,
+                       // rồi tự giảm dần RẤT CHẬM theo thời gian (không giảm ngay khi nhạc êm lại)
 let lastClimaxTime = -Infinity;
 let flashFadeOutTimer = null;
-const CLIMAX_COOLDOWN_MS = 6000; // cao trào là sự kiện HIẾM, cách nhau tối thiểu 6 giây mới cho phép bắt lần tiếp theo
+const CLIMAX_COOLDOWN_MS = 4000; // giảm xuống để bắt được nhiều đoạn cao trào hơn (chorus lặp lại, breakdown...)
 
 function triggerFlash() {
   // Fade IN êm (không nhảy đột ngột) lên một mức RẤT nhẹ, giữ 1 chút rồi fade OUT
@@ -1342,16 +1343,24 @@ function checkBassFlash() {
   }
   const bassEnergy = bassSum / CLIMAX_BIN_COUNT;
 
-  // Trung bình ngắn hạn bám sát khá nhanh theo mức năng lượng hiện tại (để nhận
-  // ra một ĐOẠN tăng vọt kéo dài, không chỉ 1 tiếng kick chớp nhoáng); trung bình
-  // dài hạn trượt rất chậm, đại diện "mức bình thường" của cả bài tính đến hiện tại.
-  climaxShortAvg += (bassEnergy - climaxShortAvg) * 0.15;
-  climaxLongAvg += (bassEnergy - climaxLongAvg) * 0.004;
+  // Cách dò mới: thay vì so với 1 đường trung bình (dễ bị "pha loãng" ở các bài
+  // pop hiện đại có chênh lệch to/nhỏ không quá lớn giữa verse và chorus), giờ so
+  // với chính "MỨC TO NHẤT gần đây" — climaxPeak nhảy lên ngay khi gặp giá trị cao
+  // hơn, rồi tự giảm rất chậm theo thời gian (không rớt ngay khi nhạc êm lại).
+  // Bất cứ khi nào năng lượng hiện tại áp sát mức đỉnh gần đây -> coi là đang ở
+  // 1 đoạn "to ngang tầm những đoạn to nhất từ nãy giờ" -> chính là cao trào.
+  climaxRecent += (bassEnergy - climaxRecent) * 0.3;
+
+  if (climaxRecent > climaxPeak) {
+    climaxPeak = climaxRecent; // gặp đỉnh mới cao hơn -> cập nhật ngay lập tức
+  } else {
+    climaxPeak *= 0.998; // decay rất chậm (mất nhiều giây mới giảm đáng kể)
+  }
 
   const now = performance.now();
   if (
-    climaxLongAvg > 4 && // tránh trigger khi gần như im lặng (đầu bài, đoạn lặng hoàn toàn)
-    climaxShortAvg > climaxLongAvg * 1.6 && // đủ cao hơn hẳn mức bình thường mới tính là cao trào thật
+    climaxPeak > 25 && // tránh trigger khi gần như im lặng (đầu bài, đoạn lặng hoàn toàn)
+    climaxRecent > climaxPeak * 0.85 && // đang áp sát mức đỉnh gần đây -> cao trào thật
     now - lastClimaxTime > CLIMAX_COOLDOWN_MS
   ) {
     lastClimaxTime = now;
