@@ -1227,6 +1227,8 @@ function drawSoundwave(values) {
 let audioCtx = null;
 let analyser = null;
 let freqData = null;
+let bassAnalyser = null;
+let bassFreqData = null;
 let analyserReady = false;
 
 function setupAudioAnalyser() {
@@ -1234,12 +1236,27 @@ function setupAudioAnalyser() {
   try {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const source = audioCtx.createMediaElementSource(audio);
+
     analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 64; // fftSize/2 = 32 dải tần, khớp đúng SW_BAR_COUNT
+    analyser.fftSize = 64; // fftSize/2 = 32 dải tần, khớp đúng SW_BAR_COUNT — CHỈ dùng để vẽ soundwave
     analyser.smoothingTimeConstant = 0.8; // làm mượt dữ liệu ngay trong AnalyserNode
     freqData = new Uint8Array(analyser.frequencyBinCount);
+
+    // AnalyserNode RIÊNG, độ phân giải cao hơn hẳn (fftSize lớn), CHỈ dùng để dò
+    // nhịp bass cho hiệu ứng chớp sáng — tách biệt hẳn khỏi analyser vẽ soundwave
+    // ở trên. Lý do tách riêng: fftSize thấp (64) gộp chung 1 dải tần rất rộng vào
+    // mỗi bin, khiến giá trị dễ "kịch trần" (bão hoà ở 255) chỉ sau vài giây đầu
+    // bài hát — khi đã kịch trần thì không còn phát hiện được đỉnh bass MỚI nào
+    // nữa, đây chính là lý do hiệu ứng chớp trước đây chỉ chớp được 1-2 lần lúc
+    // đầu rồi im bặt suốt phần còn lại của bài.
+    bassAnalyser = audioCtx.createAnalyser();
+    bassAnalyser.fftSize = 1024;
+    bassAnalyser.smoothingTimeConstant = 0.2; // ít làm mượt hơn để bắt nhịp nhanh, nhạy hơn với từng cú đập
+    bassFreqData = new Uint8Array(bassAnalyser.frequencyBinCount);
+
     source.connect(analyser);
-    analyser.connect(audioCtx.destination); // bắt buộc phải nối ra destination thì mới NGHE ĐƯỢC tiếng
+    source.connect(bassAnalyser); // chỉ để ĐỌC dữ liệu, không nối tiếp ra destination
+    analyser.connect(audioCtx.destination); // đường DUY NHẤT phát ra loa, bắt buộc phải có
     analyserReady = true;
   } catch (e) {
     console.warn('Trinh duyet khong ho tro Web Audio API, dung soundwave gia lap thay the.', e);
@@ -1271,7 +1288,7 @@ function updateFlicker() {
     // Thêm chút nhiễu ngẫu nhiên nhỏ để trông tự nhiên như ánh lửa thật, không
     // đều tăm tắp theo đúng 1 công thức toán học (sẽ trông giả, máy móc).
     const noise = Math.random() * 0.025;
-    const flickerTarget = Math.min(0.16, (avgEnergy / 255) * 0.2) + noise;
+    const flickerTarget = Math.min(0.12, (avgEnergy / 255) * 0.15) + noise;
 
     // Lerp (trượt dần) qua nhiều khung hình để chuyển mượt, không giật cục —
     // giống cách swCurrentValues của soundwave đang làm.
@@ -1283,46 +1300,62 @@ function updateFlicker() {
   flickerOverlay.style.opacity = flickerCurrent.toFixed(3);
 }
 
-// ---------- Hiệu ứng "sấm chớp" nền theo nhịp bass ----------
-// Dùng chính dữ liệu tần số thật (freqData) đang đọc cho soundwave, chỉ lấy vài
-// dải tần THẤP nhất (bass) để dò các nhịp đập mạnh (kick trống, beat dồn dập).
+// ---------- Hiệu ứng "sấm chớp" nền tại các đoạn CAO TRÀO (không phải mỗi nhịp bass) ----------
+// Dùng bassAnalyser riêng (độ phân giải cao, xem giải thích ở setupAudioAnalyser)
+// để dò những đoạn năng lượng bass tăng vọt kéo dài (chorus/drop), không bắt theo
+// từng tiếng kick trống đơn lẻ — tránh chớp liên tục gây mỏi mắt với nhạc beat dày.
 const flashOverlay = document.getElementById('flash-overlay');
-const BASS_BIN_COUNT = 3; // vài bin tần số thấp nhất trong 32 dải, đại diện cho bass
-let bassBaseline = 20;    // mức nền trung bình, tự thích nghi theo từng đoạn nhạc to/nhỏ
-let lastFlashTime = 0;
-const FLASH_COOLDOWN_MS = 180; // khoảng cách tối thiểu giữa 2 lần chớp, tránh chớp liên tục rối mắt
+const CLIMAX_BIN_COUNT = 60; // mở rộng dải tần (không chỉ riêng bass trầm) — bao quát cả bass lẫn low-mid
+                              // (~0-2500Hz với fftSize=1024), khớp hơn với cảm giác "dữ dội, dồn dập tổng
+                              // thể" mà mắt thấy trên soundwave, thay vì chỉ mỗi tiếng kick trống trầm
+let climaxShortAvg = 20;  // trung bình "gần đây" (~0.1-0.2 giây) — đại diện cường độ ngay lúc này
+let climaxLongAvg = 20;   // trung bình "nền" trượt rất chậm (~vài giây) — đại diện mức thường ngày của bài
+let lastClimaxTime = -Infinity;
+let flashFadeOutTimer = null;
+const CLIMAX_COOLDOWN_MS = 6000; // cao trào là sự kiện HIẾM, cách nhau tối thiểu 6 giây mới cho phép bắt lần tiếp theo
 
 function triggerFlash() {
-  flashOverlay.style.transition = 'none';
-  flashOverlay.style.opacity = '0.16';
-  // Ép trình duyệt áp dụng ngay opacity ở trên trước khi bắt đầu chuyển dần về 0,
-  // nếu không 2 dòng set opacity liền nhau sẽ bị gộp lại thành 1 bước, không thấy hiệu ứng.
-  void flashOverlay.offsetWidth;
-  flashOverlay.style.transition = 'opacity 0.12s ease-out';
-  flashOverlay.style.opacity = '0';
+  // Fade IN êm (không nhảy đột ngột) lên một mức RẤT nhẹ, giữ 1 chút rồi fade OUT
+  // êm về 0 — cả 2 chiều đều có easing chậm rãi, đúng chất chill, không giật mình.
+  flashOverlay.style.transition = 'opacity 0.5s ease-in-out';
+  flashOverlay.style.opacity = '0.06';
+  clearTimeout(flashFadeOutTimer);
+  flashFadeOutTimer = setTimeout(() => {
+    flashOverlay.style.opacity = '0';
+  }, 250);
+}
+
+function triggerDoubleFlash() {
+  // Đúng 2 phát mỗi lần bắt được cao trào: chớp ngay, rồi chớp thêm 1 lần nữa
+  // sau 1 khoảng ngắn, sau đó DỪNG hẳn cho tới đoạn cao trào tiếp theo (nếu có).
+  triggerFlash();
+  setTimeout(triggerFlash, 450);
 }
 
 function checkBassFlash() {
-  if (!analyserReady || audio.paused) return;
-  let bassSum = 0;
-  for (let i = 0; i < BASS_BIN_COUNT; i++) {
-    bassSum += freqData[i] || 0;
-  }
-  const bassEnergy = bassSum / BASS_BIN_COUNT;
+  if (!analyserReady || !bassAnalyser || audio.paused) return;
+  bassAnalyser.getByteFrequencyData(bassFreqData);
 
-  // Cập nhật baseline chậm rãi (exponential moving average) để tự thích nghi —
-  // đoạn nhạc to đều cả bài vẫn chớp đúng lúc có đỉnh, đoạn nhạc nhỏ đều cũng
-  // không bị im lặng hoàn toàn suốt bài.
-  bassBaseline += (bassEnergy - bassBaseline) * 0.02;
+  let bassSum = 0;
+  for (let i = 0; i < CLIMAX_BIN_COUNT; i++) {
+    bassSum += bassFreqData[i] || 0;
+  }
+  const bassEnergy = bassSum / CLIMAX_BIN_COUNT;
+
+  // Trung bình ngắn hạn bám sát khá nhanh theo mức năng lượng hiện tại (để nhận
+  // ra một ĐOẠN tăng vọt kéo dài, không chỉ 1 tiếng kick chớp nhoáng); trung bình
+  // dài hạn trượt rất chậm, đại diện "mức bình thường" của cả bài tính đến hiện tại.
+  climaxShortAvg += (bassEnergy - climaxShortAvg) * 0.15;
+  climaxLongAvg += (bassEnergy - climaxLongAvg) * 0.004;
 
   const now = performance.now();
   if (
-    bassEnergy > bassBaseline * 1.4 &&
-    bassEnergy > 90 &&
-    now - lastFlashTime > FLASH_COOLDOWN_MS
+    climaxLongAvg > 4 && // tránh trigger khi gần như im lặng (đầu bài, đoạn lặng hoàn toàn)
+    climaxShortAvg > climaxLongAvg * 1.6 && // đủ cao hơn hẳn mức bình thường mới tính là cao trào thật
+    now - lastClimaxTime > CLIMAX_COOLDOWN_MS
   ) {
-    lastFlashTime = now;
-    triggerFlash();
+    lastClimaxTime = now;
+    triggerDoubleFlash();
   }
 }
 
