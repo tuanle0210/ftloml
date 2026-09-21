@@ -83,6 +83,10 @@
     background-position: center;
     background-repeat: no-repeat;
     z-index: -2;
+    /* Phóng to nhẹ hơn kích thước thật để khi feDisplacementMap "kéo méo" các
+       điểm ảnh, không bị lộ ra viền trống ngoài rìa ảnh. */
+    transform: scale(1.15);
+    filter: url(#psychedelic-warp) hue-rotate(0deg) saturate(1);
   }
   .bg-overlay {
     position: fixed;
@@ -527,6 +531,20 @@
 </style>
 </head>
 <body>
+
+<!-- Bộ lọc SVG dùng để làm méo (uốn éo) ảnh nền theo kiểu sóng chảy — feTurbulence
+     tạo hoạ tiết nhiễu ngẫu nhiên, feDisplacementMap dùng hoạ tiết đó để "kéo méo"
+     từng điểm ảnh của bg-layer. Cả 2 thuộc tính scale/baseFrequency được JS chỉnh
+     liên tục mỗi khung hình để tạo cảm giác uốn éo động, phản ứng theo nhạc. Chỉ
+     là định nghĩa filter, bản thân SVG này không hiển thị gì (width/height = 0). -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="psychedelic-warp" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence id="psy-turbulence" type="fractalNoise" baseFrequency="0.006" numOctaves="2" seed="7" result="noise"></feTurbulence>
+      <feDisplacementMap id="psy-displace" in="SourceGraphic" in2="noise" scale="0" xChannelSelector="R" yChannelSelector="G"></feDisplacementMap>
+    </filter>
+  </defs>
+</svg>
 
 <div class="bg-layer"></div>
 <div class="bg-overlay"></div>
@@ -1273,6 +1291,68 @@ function ensureAudioCtxRunning() {
   }
 }
 
+// Safari (đặc biệt trên iOS) có xu hướng tự "đóng băng" (suspended) AudioContext khi
+// người dùng khoá màn hình hoặc chuyển sang app khác để tiết kiệm pin — lúc này thẻ
+// <audio> vẫn tiếp tục chạy thời gian (currentTime vẫn tăng, trạng thái vẫn "playing")
+// nhưng KHÔNG CÓ TIẾNG ra loa, vì đường phát âm thanh thật đang đi qua chính
+// AudioContext đã bị đóng băng đó. Cách khắc phục: lắng nghe các sự kiện báo hiệu
+// trang quay lại hoạt động (mở khoá màn hình, quay lại app, chuyển tab) và tự động
+// resume() lại AudioContext ngay lập tức nếu nó đang ở trạng thái suspended trong
+// khi nhạc vẫn đang được yêu cầu phát (audio.paused === false).
+function resumeAudioCtxIfNeeded() {
+  if (audioCtx && audioCtx.state === 'suspended' && !audio.paused) {
+    audioCtx.resume();
+  }
+}
+document.addEventListener('visibilitychange', resumeAudioCtxIfNeeded);
+window.addEventListener('focus', resumeAudioCtxIfNeeded);
+window.addEventListener('pageshow', resumeAudioCtxIfNeeded);
+
+// ---------- Hiệu ứng "uốn éo" psychedelic cho ảnh nền ----------
+// Dùng SVG filter (feTurbulence + feDisplacementMap) khai báo ở đầu <body> để làm
+// méo ảnh nền theo kiểu sóng chảy, cộng thêm xoay tông màu (hue-rotate) liên tục.
+// Cả độ méo lẫn tốc độ xoay màu đều phản ứng theo năng lượng tổng thể của nhạc
+// (giống cách tính avgEnergy cho hiệu ứng bập bùng) — nhạc càng to/dồn dập, hình
+// càng uốn éo mạnh và màu xoay nhanh hơn; nhạc nhẹ thì gần như đứng yên, êm dịu.
+const bgLayerEl = document.querySelector('.bg-layer');
+const psyTurbulence = document.getElementById('psy-turbulence');
+const psyDisplace = document.getElementById('psy-displace');
+let psyHue = 0;
+let psyPhase = 0;
+let psyScaleCurrent = 0;
+
+function updatePsychedelic() {
+  if (!analyserReady || audio.paused) {
+    // Không phát nhạc -> tắt dần độ méo về 0 (ảnh trở lại bình thường), giữ
+    // nguyên hue hiện tại (không cần reset về 0 mỗi lần dừng).
+    psyScaleCurrent += (0 - psyScaleCurrent) * 0.05;
+    psyDisplace.setAttribute('scale', psyScaleCurrent.toFixed(1));
+    return;
+  }
+
+  let totalEnergy = 0;
+  for (let i = 0; i < freqData.length; i++) totalEnergy += freqData[i];
+  const avgEnergy = totalEnergy / freqData.length; // 0-255
+  const energyRatio = avgEnergy / 255;
+
+  // Độ méo dao động nhẹ nhàng theo sóng sin (để hình "chảy" có nhịp, không đứng
+  // yên hay giật cục), biên độ và tốc độ dao động đều tăng theo năng lượng nhạc.
+  psyPhase += 0.015 + energyRatio * 0.05;
+  const wobble = Math.sin(psyPhase) * 0.5 + 0.5;
+  const scaleTarget = 6 + energyRatio * 30 + wobble * 8;
+  psyScaleCurrent += (scaleTarget - psyScaleCurrent) * 0.08;
+  psyDisplace.setAttribute('scale', psyScaleCurrent.toFixed(1));
+
+  // Tần số hoạ tiết nhiễu (baseFrequency) dao động chậm rãi để kiểu méo tự "chảy"
+  // đổi hình dạng theo thời gian, không lặp lại y hệt 1 kiểu mãi.
+  const freq = 0.004 + wobble * 0.003;
+  psyTurbulence.setAttribute('baseFrequency', freq.toFixed(4));
+
+  // Hue trôi liên tục quanh vòng tròn màu, nhanh hơn khi nhạc dồn dập.
+  psyHue = (psyHue + 0.12 + energyRatio * 0.5) % 360;
+  bgLayerEl.style.filter = `url(#psychedelic-warp) hue-rotate(${psyHue.toFixed(1)}deg) saturate(${(1 + energyRatio * 0.5).toFixed(2)})`;
+}
+
 // ---------- Hiệu ứng "bập bùng" nền liên tục theo năng lượng tổng thể bài hát ----------
 const flickerOverlay = document.getElementById('flicker-overlay');
 let flickerCurrent = 0;
@@ -1373,6 +1453,7 @@ function soundwaveLoop() {
   let lerpSpeed;
 
   updateFlicker(); // hiệu ứng bập bùng liên tục, cập nhật mỗi khung hình bất kể đang play hay pause
+  updatePsychedelic(); // hiệu ứng uốn éo + xoay màu nền, cập nhật mỗi khung hình
 
   if (analyserReady && !audio.paused) {
     // Đang phát nhạc và Web Audio API hoạt động bình thường -> dùng dữ liệu tần số thật
@@ -1507,6 +1588,7 @@ audio.addEventListener('timeupdate', () => {
   progress.value = pct;
   progress.style.setProperty('--progress-pct', (pct / 10) + '%');
   updateActiveTrack();
+  resumeAudioCtxIfNeeded(); // lớp bảo hiểm thêm, phòng khi các sự kiện visibility/focus không bắt kịp
 });
 
 progress.addEventListener('input', () => {
