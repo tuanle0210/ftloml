@@ -158,9 +158,16 @@
     display: flex;
     justify-content: center;
   }
-  .cover-wrap img {
+  /* Khung chứa ảnh + lỗ tròn giữa đĩa, giữ đúng kích thước 65% để lỗ luôn nằm
+     đúng tâm ảnh cover bất kể cover-wrap rộng bao nhiêu. */
+  .cover-disc {
+    position: relative;
     width: 65%;
     aspect-ratio: 1 / 1;
+  }
+  .cover-disc img {
+    width: 100%;
+    height: 100%;
     object-fit: cover;
     border-radius: 20px;
     box-shadow: 0 12px 30px rgba(0,0,0,0.25);
@@ -169,8 +176,27 @@
     animation-play-state: paused;
     transition: border-radius 0.4s ease;
   }
-  .cover-wrap img.spinning {
+  .cover-disc img.spinning {
     border-radius: 50%;
+  }
+  /* Lỗ tròn giữa đĩa, giống lỗ spindle của CD thật — đứng yên (không xoay theo ảnh),
+     chỉ hiện ra (scale từ 0 lên 1) đúng lúc ảnh chuyển sang hình tròn khi phát nhạc. */
+  .cover-hole {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 13%;
+    aspect-ratio: 1 / 1;
+    border-radius: 50%;
+    background: var(--card-bg);
+    border: 2px solid rgba(0,0,0,0.15);
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.25);
+    transform: translate(-50%, -50%) scale(0);
+    transition: transform 0.4s ease, background 0.3s ease;
+    pointer-events: none;
+  }
+  .cover-disc img.spinning ~ .cover-hole {
+    transform: translate(-50%, -50%) scale(1);
   }
 
   @keyframes cover-spin {
@@ -441,7 +467,10 @@
   </button>
 
   <div class="cover-wrap">
-    <img id="cover-img" src="assets/cover.jpg" alt="">
+    <div class="cover-disc">
+      <img id="cover-img" src="assets/cover.jpg" alt="">
+      <div class="cover-hole"></div>
+    </div>
   </div>
 
   <div class="album-info">
@@ -512,6 +541,22 @@ const CONFIG = {
       "14:51.526", "18:29.083", "22:02.794", "25:30.737", "30:36.672"
     ],
   },
+
+  // ---- Tên từng bài hát, dùng để hiện trên màn hình khóa điện thoại (lock screen) khi phát nhạc.
+  // KHÔNG hiện trên giao diện chính của trang — trang vẫn chỉ có lưới 10 nút số như cũ.
+  // Phải có đúng 10 tên, theo đúng thứ tự bài 1 → bài 10, khớp với trackStarts ở trên.
+  trackTitles: [
+    "Intro",
+    "Be Free",
+    "Mèo Đi Heels",
+    "A Tension Lover",
+    "Hà Nội MNCM",
+    "DR3am.ING",
+    "TRƯỚC CỬA NHÀ",
+    "bụi hoa nhài (trước cửa nhà)",
+    "Buổi Sáng Đầu Tiên (sau chia tay)",
+    "Ivy",
+  ],
 
   // ---- Màu phủ nền riêng cho từng bài (đổi bài sẽ đổi màu, tự chuyển mượt) ----
   // Phải có đúng 10 màu, theo đúng thứ tự bài 1 → bài 10.
@@ -1166,6 +1211,49 @@ const audio = document.getElementById('audio');
 audio.src = CONFIG.audio.src;
 soundwaveLoop();
 
+// ---------- Media Session API: điều khiển từ màn hình khóa điện thoại / tai nghe Bluetooth ----------
+// Cho phép hiện ảnh bìa + tên track + nút play/pause/next/prev ngay trên lock screen,
+// và điều khiển được bằng nút trên tai nghe không dây, không cần mở lại trình duyệt.
+// Được hỗ trợ trên Chrome, Edge, Firefox và Safari 15+ (cả iOS lẫn macOS).
+if ('mediaSession' in navigator) {
+  navigator.mediaSession.setActionHandler('play', () => {
+    ensureAudioCtxRunning();
+    audio.play();
+  });
+  navigator.mediaSession.setActionHandler('pause', () => {
+    audio.pause();
+  });
+  navigator.mediaSession.setActionHandler('previoustrack', () => {
+    btnPrev.click();
+  });
+  navigator.mediaSession.setActionHandler('nexttrack', () => {
+    btnNext.click();
+  });
+  navigator.mediaSession.setActionHandler('seekto', (details) => {
+    if (details.seekTime != null) {
+      audio.currentTime = details.seekTime;
+    }
+  });
+}
+
+function updateMediaSessionMetadata(idx) {
+  if (!('mediaSession' in navigator)) return;
+  const title = CONFIG.trackTitles[idx] || `Track ${idx + 1}`;
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: title,
+    artist: CONFIG.album.artist,
+    album: CONFIG.album.title,
+    artwork: [
+      { src: 'assets/cover.jpg', sizes: '512x512', type: 'image/jpeg' },
+    ],
+  });
+}
+
+function updateMediaSessionPlaybackState() {
+  if (!('mediaSession' in navigator)) return;
+  navigator.mediaSession.playbackState = audio.paused ? 'paused' : 'playing';
+}
+
 const btnPlay = document.getElementById('btn-play');
 const playIcon = document.getElementById('play-icon');
 const btnPrev = document.getElementById('btn-prev');
@@ -1208,11 +1296,13 @@ audio.addEventListener('play', () => {
   setPlayIcon(true);
   setCoverSpinning(true);
   if (!analyserReady) startFakeWaveTargetLoop(); // fallback nếu Web Audio API không dùng được
+  updateMediaSessionPlaybackState();
 });
 audio.addEventListener('pause', () => {
   setPlayIcon(false);
   setCoverSpinning(false);
   if (!analyserReady) stopFakeWaveTargetLoop();
+  updateMediaSessionPlaybackState();
 });
 
 audio.addEventListener('loadedmetadata', () => {
@@ -1266,6 +1356,7 @@ function applyTrackColor(idx) {
   lastColorTrackIdx = idx;
   const color = CONFIG.trackColors[idx] || CONFIG.trackColors[0];
   bgColorOverlay.style.backgroundColor = color;
+  updateMediaSessionMetadata(idx);
 }
 
 // ---------- Lyrics: chuyển đổi lưới số <-> khung lyrics ----------
