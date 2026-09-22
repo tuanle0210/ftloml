@@ -78,7 +78,7 @@
   .bg-layer {
     position: fixed;
     inset: 0;
-    background-image: url('assets/background.jpg');
+    background-image: url('assets/background.webp');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -86,7 +86,6 @@
     /* Phóng to nhẹ hơn kích thước thật để khi feDisplacementMap "kéo méo" các
        điểm ảnh, không bị lộ ra viền trống ngoài rìa ảnh. */
     transform: scale(1.15);
-    filter: url(#psychedelic-warp) hue-rotate(0deg) saturate(1);
   }
   .bg-overlay {
     position: fixed;
@@ -94,59 +93,6 @@
     background: var(--bg-overlay);
     z-index: -1;
     transition: background 0.3s ease;
-  }
-
-  /* Lớp phủ màu riêng theo từng bài — tách biệt với overlay sáng/tối ở trên,
-     dùng mix-blend-mode để hoà vào ảnh nền chứ không che kín, và transition dài hơn
-     một chút để cảm giác chuyển bài mượt, không giật cục. */
-  .bg-color-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    background: transparent;
-    mix-blend-mode: normal;
-    opacity: 0.4;
-    transition: background-color 1.2s ease;
-    pointer-events: none;
-  }
-
-  /* Hiệu ứng "bập bùng" liên tục theo năng lượng tổng thể của bài hát — khác với
-     flash-overlay bên dưới (chỉ loé mạnh khi có nhịp bass đột ngột), lớp này luôn
-     nhấp nháy nhẹ suốt lúc phát nhạc, sáng hơn khi đoạn nhạc to/dồn dập, mờ đi khi
-     đoạn nhạc nhẹ nhàng — giống ánh lửa bập bùng đều theo nhịp điệu bài hát.
-     Dùng nền ĐEN + mix-blend-mode: multiply (thay vì trắng + screen như trước) để
-     GIỮ NGUYÊN tông màu gốc của ảnh nền, chỉ làm nền tối/sáng lên xuống nhẹ trong
-     chính dải màu đó — tránh bị nhạt/bạc màu do hoà thêm ánh trắng lên trên.
-     Opacity được JS set trực tiếp mỗi khung hình (không dùng transition CSS ở đây)
-     để phản ứng tức thời theo nhạc; JS bên dưới tự làm mượt (lerp) qua nhiều khung
-     hình liền nhau nên không bị giật cục. Cùng z-index âm với các lớp nền khác —
-     không ảnh hưởng khung nội dung chính.*/
-  .flicker-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    background: #000000;
-    opacity: 0;
-    mix-blend-mode: multiply;
-    pointer-events: none;
-  }
-
-  /* Hiệu ứng "sấm chớp" theo nhịp bass — CHỈ tác động lên lớp NỀN phía sau (cùng
-     nhóm z-index âm với bg-layer/bg-overlay/bg-color-overlay), không che hay làm
-     sáng các khung nội dung chính (.player, nút bấm...) vì những khung đó luôn
-     nằm trong luồng bình thường của trang, tự động vẽ đè lên trên các lớp z-index
-     âm này. Mặc định trong suốt (opacity 0), mỗi khi phát hiện 1 nhịp bass mạnh,
-     opacity tăng vọt rồi tự chuyển dần về 0 — tạo cảm giác loé sáng rồi tắt dần.
-     mix-blend-mode: screen giúp làm sáng đúng phần nền phía dưới nó thay vì che
-     trắng xoá mất ảnh nền. */
-  .flash-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    background: #ffffff;
-    opacity: 0;
-    mix-blend-mode: screen;
-    pointer-events: none;
   }
 
   .page {
@@ -223,7 +169,7 @@
     border-radius: 50%;
     /* Khoét THẬT một lỗ tròn giữa ảnh bằng CSS mask, thay vì vẽ đè màu đen lên trên.
        Vùng "black" trong gradient dưới đây = bị ẩn đi (trong suốt), để lộ background
-       thật của trang (bg-layer/bg-overlay/bg-color-overlay) xuyên qua đúng lỗ đó.
+       thật của trang (bg-layer/bg-overlay) xuyên qua đúng lỗ đó.
        Vùng "white" = ảnh hiển thị bình thường. Cần khai báo cả 2 tiền tố để chạy
        trên Chrome/Firefox (mask-image) lẫn Safari (-webkit-mask-image). */
     mask-image: radial-gradient(circle closest-side at center, black 0%, black 13%, white 14%, white 100%);
@@ -532,25 +478,8 @@
 </head>
 <body>
 
-<!-- Bộ lọc SVG dùng để làm méo (uốn éo) ảnh nền theo kiểu sóng chảy — feTurbulence
-     tạo hoạ tiết nhiễu ngẫu nhiên, feDisplacementMap dùng hoạ tiết đó để "kéo méo"
-     từng điểm ảnh của bg-layer. Cả 2 thuộc tính scale/baseFrequency được JS chỉnh
-     liên tục mỗi khung hình để tạo cảm giác uốn éo động, phản ứng theo nhạc. Chỉ
-     là định nghĩa filter, bản thân SVG này không hiển thị gì (width/height = 0). -->
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <defs>
-    <filter id="psychedelic-warp" x="-20%" y="-20%" width="140%" height="140%">
-      <feTurbulence id="psy-turbulence" type="fractalNoise" baseFrequency="0.006" numOctaves="2" seed="7" result="noise"></feTurbulence>
-      <feDisplacementMap id="psy-displace" in="SourceGraphic" in2="noise" scale="0" xChannelSelector="R" yChannelSelector="G"></feDisplacementMap>
-    </filter>
-  </defs>
-</svg>
-
 <div class="bg-layer"></div>
 <div class="bg-overlay"></div>
-<div class="bg-color-overlay" id="bg-color-overlay"></div>
-<div class="flicker-overlay" id="flicker-overlay"></div>
-<div class="flash-overlay" id="flash-overlay"></div>
 
 <div class="page">
 
@@ -650,14 +579,6 @@ const CONFIG = {
     "bụi hoa nhài (trước cửa nhà)",
     "Buổi Sáng Đầu Tiên (sau chia tay)",
     "Ivy",
-  ],
-
-  // ---- Màu phủ nền riêng cho từng bài (đổi bài sẽ đổi màu, tự chuyển mượt) ----
-  // Phải có đúng 10 màu, theo đúng thứ tự bài 1 → bài 10.
-  // Đổi màu nào chỉ cần sửa mã hex tương ứng, không cần biết code.
-  trackColors: [
-    "#b34552", "#ff3131", "#ff751f", "#10bb82", "#0081cc",
-    "#0025cc", "#6b1fad", "#cc007e", "#ffd659", "#f7c9d3",
   ],
 
   // ---- Lời bài hát (lyrics) từng bài, bấm nút "Lyrics" cạnh Play sẽ hiện ra ----
@@ -1245,8 +1166,6 @@ function drawSoundwave(values) {
 let audioCtx = null;
 let analyser = null;
 let freqData = null;
-let bassAnalyser = null;
-let bassFreqData = null;
 let analyserReady = false;
 
 function setupAudioAnalyser() {
@@ -1260,20 +1179,7 @@ function setupAudioAnalyser() {
     analyser.smoothingTimeConstant = 0.8; // làm mượt dữ liệu ngay trong AnalyserNode
     freqData = new Uint8Array(analyser.frequencyBinCount);
 
-    // AnalyserNode RIÊNG, độ phân giải cao hơn hẳn (fftSize lớn), CHỈ dùng để dò
-    // nhịp bass cho hiệu ứng chớp sáng — tách biệt hẳn khỏi analyser vẽ soundwave
-    // ở trên. Lý do tách riêng: fftSize thấp (64) gộp chung 1 dải tần rất rộng vào
-    // mỗi bin, khiến giá trị dễ "kịch trần" (bão hoà ở 255) chỉ sau vài giây đầu
-    // bài hát — khi đã kịch trần thì không còn phát hiện được đỉnh bass MỚI nào
-    // nữa, đây chính là lý do hiệu ứng chớp trước đây chỉ chớp được 1-2 lần lúc
-    // đầu rồi im bặt suốt phần còn lại của bài.
-    bassAnalyser = audioCtx.createAnalyser();
-    bassAnalyser.fftSize = 1024;
-    bassAnalyser.smoothingTimeConstant = 0.2; // ít làm mượt hơn để bắt nhịp nhanh, nhạy hơn với từng cú đập
-    bassFreqData = new Uint8Array(bassAnalyser.frequencyBinCount);
-
     source.connect(analyser);
-    source.connect(bassAnalyser); // chỉ để ĐỌC dữ liệu, không nối tiếp ra destination
     analyser.connect(audioCtx.destination); // đường DUY NHẤT phát ra loa, bắt buộc phải có
     analyserReady = true;
   } catch (e) {
@@ -1308,159 +1214,15 @@ document.addEventListener('visibilitychange', resumeAudioCtxIfNeeded);
 window.addEventListener('focus', resumeAudioCtxIfNeeded);
 window.addEventListener('pageshow', resumeAudioCtxIfNeeded);
 
-// ---------- Hiệu ứng "uốn éo" psychedelic cho ảnh nền ----------
-// Dùng SVG filter (feTurbulence + feDisplacementMap) khai báo ở đầu <body> để làm
-// méo ảnh nền theo kiểu sóng chảy, cộng thêm xoay tông màu (hue-rotate) liên tục.
-// Cả độ méo lẫn tốc độ xoay màu đều phản ứng theo năng lượng tổng thể của nhạc
-// (giống cách tính avgEnergy cho hiệu ứng bập bùng) — nhạc càng to/dồn dập, hình
-// càng uốn éo mạnh và màu xoay nhanh hơn; nhạc nhẹ thì gần như đứng yên, êm dịu.
-const bgLayerEl = document.querySelector('.bg-layer');
-const psyTurbulence = document.getElementById('psy-turbulence');
-const psyDisplace = document.getElementById('psy-displace');
-let psyHue = 0;
-let psyPhase = 0;
-let psyScaleCurrent = 0;
-
-function updatePsychedelic() {
-  if (!analyserReady || audio.paused) {
-    // Không phát nhạc -> tắt dần độ méo về 0 (ảnh trở lại bình thường), giữ
-    // nguyên hue hiện tại (không cần reset về 0 mỗi lần dừng).
-    psyScaleCurrent += (0 - psyScaleCurrent) * 0.05;
-    psyDisplace.setAttribute('scale', psyScaleCurrent.toFixed(1));
-    return;
-  }
-
-  let totalEnergy = 0;
-  for (let i = 0; i < freqData.length; i++) totalEnergy += freqData[i];
-  const avgEnergy = totalEnergy / freqData.length; // 0-255
-  const energyRatio = avgEnergy / 255;
-
-  // Độ méo dao động nhẹ nhàng theo sóng sin (để hình "chảy" có nhịp, không đứng
-  // yên hay giật cục), biên độ và tốc độ dao động đều tăng theo năng lượng nhạc.
-  psyPhase += 0.015 + energyRatio * 0.05;
-  const wobble = Math.sin(psyPhase) * 0.5 + 0.5;
-  const scaleTarget = 6 + energyRatio * 30 + wobble * 8;
-  psyScaleCurrent += (scaleTarget - psyScaleCurrent) * 0.08;
-  psyDisplace.setAttribute('scale', psyScaleCurrent.toFixed(1));
-
-  // Tần số hoạ tiết nhiễu (baseFrequency) dao động chậm rãi để kiểu méo tự "chảy"
-  // đổi hình dạng theo thời gian, không lặp lại y hệt 1 kiểu mãi.
-  const freq = 0.004 + wobble * 0.003;
-  psyTurbulence.setAttribute('baseFrequency', freq.toFixed(4));
-
-  // Hue trôi liên tục quanh vòng tròn màu, nhanh hơn khi nhạc dồn dập.
-  psyHue = (psyHue + 0.12 + energyRatio * 0.5) % 360;
-  bgLayerEl.style.filter = `url(#psychedelic-warp) hue-rotate(${psyHue.toFixed(1)}deg) saturate(${(1 + energyRatio * 0.5).toFixed(2)})`;
-}
-
-// ---------- Hiệu ứng "bập bùng" nền liên tục theo năng lượng tổng thể bài hát ----------
-const flickerOverlay = document.getElementById('flicker-overlay');
-let flickerCurrent = 0;
-
-function updateFlicker() {
-  if (analyserReady && !audio.paused) {
-    // Tính năng lượng trung bình của TOÀN BỘ dải tần (không chỉ riêng bass như
-    // phần chớp sấm chớp ở trên) để đại diện cho độ "to nhỏ" tổng thể của nhạc.
-    let totalEnergy = 0;
-    for (let i = 0; i < freqData.length; i++) totalEnergy += freqData[i];
-    const avgEnergy = totalEnergy / freqData.length; // 0-255
-
-    // Thêm chút nhiễu ngẫu nhiên nhỏ để trông tự nhiên như ánh lửa thật, không
-    // đều tăm tắp theo đúng 1 công thức toán học (sẽ trông giả, máy móc).
-    const noise = Math.random() * 0.025;
-    const flickerTarget = Math.min(0.12, (avgEnergy / 255) * 0.15) + noise;
-
-    // Lerp (trượt dần) qua nhiều khung hình để chuyển mượt, không giật cục —
-    // giống cách swCurrentValues của soundwave đang làm.
-    flickerCurrent += (flickerTarget - flickerCurrent) * 0.15;
-  } else {
-    // Không phát nhạc hoặc Web Audio API không khả dụng -> tắt dần về 0
-    flickerCurrent += (0 - flickerCurrent) * 0.1;
-  }
-  flickerOverlay.style.opacity = flickerCurrent.toFixed(3);
-}
-
-// ---------- Hiệu ứng "sấm chớp" nền tại các đoạn CAO TRÀO (không phải mỗi nhịp bass) ----------
-// Dùng bassAnalyser riêng (độ phân giải cao, xem giải thích ở setupAudioAnalyser)
-// để dò những đoạn năng lượng bass tăng vọt kéo dài (chorus/drop), không bắt theo
-// từng tiếng kick trống đơn lẻ — tránh chớp liên tục gây mỏi mắt với nhạc beat dày.
-const flashOverlay = document.getElementById('flash-overlay');
-const CLIMAX_BIN_COUNT = 60; // mở rộng dải tần (không chỉ riêng bass trầm) — bao quát cả bass lẫn low-mid
-                              // (~0-2500Hz với fftSize=1024), khớp hơn với cảm giác "dữ dội, dồn dập tổng
-                              // thể" mà mắt thấy trên soundwave, thay vì chỉ mỗi tiếng kick trống trầm
-let climaxRecent = 20; // mượt rất nhẹ theo khung hình hiện tại, gần như phản ánh tức thời
-let climaxPeak = 20;   // "đỉnh" năng lượng gần đây — nhảy lên ngay khi có giá trị cao hơn,
-                       // rồi tự giảm dần RẤT CHẬM theo thời gian (không giảm ngay khi nhạc êm lại)
-let lastClimaxTime = -Infinity;
-let flashFadeOutTimer = null;
-const CLIMAX_COOLDOWN_MS = 4000; // giảm xuống để bắt được nhiều đoạn cao trào hơn (chorus lặp lại, breakdown...)
-
-function triggerFlash() {
-  // Fade IN êm (không nhảy đột ngột) lên một mức RẤT nhẹ, giữ 1 chút rồi fade OUT
-  // êm về 0 — cả 2 chiều đều có easing chậm rãi, đúng chất chill, không giật mình.
-  flashOverlay.style.transition = 'opacity 0.5s ease-in-out';
-  flashOverlay.style.opacity = '0.06';
-  clearTimeout(flashFadeOutTimer);
-  flashFadeOutTimer = setTimeout(() => {
-    flashOverlay.style.opacity = '0';
-  }, 250);
-}
-
-function triggerDoubleFlash() {
-  // Đúng 2 phát mỗi lần bắt được cao trào: chớp ngay, rồi chớp thêm 1 lần nữa
-  // sau 1 khoảng ngắn, sau đó DỪNG hẳn cho tới đoạn cao trào tiếp theo (nếu có).
-  triggerFlash();
-  setTimeout(triggerFlash, 450);
-}
-
-function checkBassFlash() {
-  if (!analyserReady || !bassAnalyser || audio.paused) return;
-  bassAnalyser.getByteFrequencyData(bassFreqData);
-
-  let bassSum = 0;
-  for (let i = 0; i < CLIMAX_BIN_COUNT; i++) {
-    bassSum += bassFreqData[i] || 0;
-  }
-  const bassEnergy = bassSum / CLIMAX_BIN_COUNT;
-
-  // Cách dò mới: thay vì so với 1 đường trung bình (dễ bị "pha loãng" ở các bài
-  // pop hiện đại có chênh lệch to/nhỏ không quá lớn giữa verse và chorus), giờ so
-  // với chính "MỨC TO NHẤT gần đây" — climaxPeak nhảy lên ngay khi gặp giá trị cao
-  // hơn, rồi tự giảm rất chậm theo thời gian (không rớt ngay khi nhạc êm lại).
-  // Bất cứ khi nào năng lượng hiện tại áp sát mức đỉnh gần đây -> coi là đang ở
-  // 1 đoạn "to ngang tầm những đoạn to nhất từ nãy giờ" -> chính là cao trào.
-  climaxRecent += (bassEnergy - climaxRecent) * 0.3;
-
-  if (climaxRecent > climaxPeak) {
-    climaxPeak = climaxRecent; // gặp đỉnh mới cao hơn -> cập nhật ngay lập tức
-  } else {
-    climaxPeak *= 0.998; // decay rất chậm (mất nhiều giây mới giảm đáng kể)
-  }
-
-  const now = performance.now();
-  if (
-    climaxPeak > 25 && // tránh trigger khi gần như im lặng (đầu bài, đoạn lặng hoàn toàn)
-    climaxRecent > climaxPeak * 0.85 && // đang áp sát mức đỉnh gần đây -> cao trào thật
-    now - lastClimaxTime > CLIMAX_COOLDOWN_MS
-  ) {
-    lastClimaxTime = now;
-    triggerDoubleFlash();
-  }
-}
-
 function soundwaveLoop() {
   let values;
   let lerpSpeed;
-
-  updateFlicker(); // hiệu ứng bập bùng liên tục, cập nhật mỗi khung hình bất kể đang play hay pause
-  updatePsychedelic(); // hiệu ứng uốn éo + xoay màu nền, cập nhật mỗi khung hình
 
   if (analyserReady && !audio.paused) {
     // Đang phát nhạc và Web Audio API hoạt động bình thường -> dùng dữ liệu tần số thật
     analyser.getByteFrequencyData(freqData);
     values = freqData;
     lerpSpeed = 0.35; // dữ liệu thật đã có nhịp riêng, chỉ cần lerp nhẹ cho mượt khung hình
-    checkBassFlash(); // dò nhịp bass mạnh để kích hoạt hiệu ứng chớp sáng nền
   } else if (analyserReady) {
     // Web Audio API hoạt động nhưng đang tạm dừng -> để các cột về mức nghỉ
     values = swIdleValues;
@@ -1482,49 +1244,6 @@ function soundwaveLoop() {
 const audio = document.getElementById('audio');
 audio.src = CONFIG.audio.src;
 soundwaveLoop();
-
-// ---------- Media Session API: điều khiển từ màn hình khóa điện thoại / tai nghe Bluetooth ----------
-// Cho phép hiện ảnh bìa + tên track + nút play/pause/next/prev ngay trên lock screen,
-// và điều khiển được bằng nút trên tai nghe không dây, không cần mở lại trình duyệt.
-// Được hỗ trợ trên Chrome, Edge, Firefox và Safari 15+ (cả iOS lẫn macOS).
-if ('mediaSession' in navigator) {
-  navigator.mediaSession.setActionHandler('play', () => {
-    ensureAudioCtxRunning();
-    audio.play();
-  });
-  navigator.mediaSession.setActionHandler('pause', () => {
-    audio.pause();
-  });
-  navigator.mediaSession.setActionHandler('previoustrack', () => {
-    btnPrev.click();
-  });
-  navigator.mediaSession.setActionHandler('nexttrack', () => {
-    btnNext.click();
-  });
-  navigator.mediaSession.setActionHandler('seekto', (details) => {
-    if (details.seekTime != null) {
-      audio.currentTime = details.seekTime;
-    }
-  });
-}
-
-function updateMediaSessionMetadata(idx) {
-  if (!('mediaSession' in navigator)) return;
-  const title = CONFIG.trackTitles[idx] || `Track ${idx + 1}`;
-  navigator.mediaSession.metadata = new MediaMetadata({
-    title: title,
-    artist: CONFIG.album.artist,
-    album: CONFIG.album.title,
-    artwork: [
-      { src: 'assets/cover.jpg', sizes: '512x512', type: 'image/jpeg' },
-    ],
-  });
-}
-
-function updateMediaSessionPlaybackState() {
-  if (!('mediaSession' in navigator)) return;
-  navigator.mediaSession.playbackState = audio.paused ? 'paused' : 'playing';
-}
 
 const btnPlay = document.getElementById('btn-play');
 const playIcon = document.getElementById('play-icon');
@@ -1568,13 +1287,11 @@ audio.addEventListener('play', () => {
   setPlayIcon(true);
   setCoverSpinning(true);
   if (!analyserReady) startFakeWaveTargetLoop(); // fallback nếu Web Audio API không dùng được
-  updateMediaSessionPlaybackState();
 });
 audio.addEventListener('pause', () => {
   setPlayIcon(false);
   setCoverSpinning(false);
   if (!analyserReady) stopFakeWaveTargetLoop();
-  updateMediaSessionPlaybackState();
 });
 
 audio.addEventListener('loadedmetadata', () => {
@@ -1617,19 +1334,6 @@ function updateActiveTrack() {
   const buttons = trackGrid.querySelectorAll('button');
   buttons.forEach((b, i) => b.classList.toggle('active', i === idx));
   if (lyricsMode) renderLyrics(idx);
-  applyTrackColor(idx);
-}
-
-// ---------- Đổi màu phủ nền theo bài đang phát ----------
-const bgColorOverlay = document.getElementById('bg-color-overlay');
-let lastColorTrackIdx = -1;
-
-function applyTrackColor(idx) {
-  if (idx === lastColorTrackIdx) return; // tránh set lại liên tục mỗi timeupdate, chỉ đổi khi sang bài mới
-  lastColorTrackIdx = idx;
-  const color = CONFIG.trackColors[idx] || CONFIG.trackColors[0];
-  bgColorOverlay.style.backgroundColor = color;
-  updateMediaSessionMetadata(idx);
 }
 
 // ---------- Lyrics: chuyển đổi lưới số <-> khung lyrics ----------
