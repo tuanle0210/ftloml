@@ -21,30 +21,23 @@
 
 <style>
   /* ============================================================
-     BIẾN MÀU — 2 chế độ sáng / tối
-     Muốn đổi tông màu chính (hot pink) chỉ cần sửa --accent ở cả 2 khối bên dưới.
+     BIẾN MÀU — giao diện chuyển dần từ tối (bài 1) sang sáng (bài 10).
+     Giá trị dưới đây là màu của BÀI 1 (tối nhất), dùng lúc trang vừa mở.
+     Các bài sau do JavaScript tự tính (xem mục "Theme chuyển dần theo bài").
+     Muốn đổi màu tối/sáng ở 2 đầu, sửa THEME_DARK / THEME_LIGHT trong script.
   ============================================================ */
   :root {
     --accent: #df4a5e;         /* màu nhấn chính: play button, slider, nút CTA */
     --accent-contrast: #ffffff;
 
-    --card-bg: #fffdf9;        /* nền card, trắng ngà */
-    --text: #2b2320;           /* chữ chính, tối */
-    --text-soft: rgba(43,35,32,0.65);
-    --border-soft: rgba(43,35,32,0.08);
-    --track-btn-bg: rgba(43,35,32,0.06);
-    --bg-overlay: rgba(255,255,255,0.08); /* lớp phủ nhẹ ở light mode, gần như trong suốt */
-    --link-text: var(--accent); /* màu chữ nút Streaming/Download ở light mode */
-  }
-
-  [data-theme="dark"] {
     --card-bg: #1a1210;
     --text: #f5efec;
     --text-soft: rgba(245,239,236,0.65);
     --border-soft: rgba(245,239,236,0.10);
     --track-btn-bg: rgba(245,239,236,0.08);
-    --bg-overlay: rgba(0,0,0,0.55); /* lớp phủ tối ở dark mode, làm ảnh nền trầm xuống */
-    --link-text: #ffffff; /* màu chữ nút Streaming/Download ở dark mode */
+    --bg-overlay: rgba(0,0,0,0.55);  /* lớp phủ lên ảnh nền */
+    --link-text: #ffffff;            /* chữ nút Streaming/Download */
+    --accent-ink: #df4a5e;           /* chữ màu hồng trên nền card (nút Lyrics) */
   }
 
   * { box-sizing: border-box; }
@@ -69,7 +62,6 @@
     min-height: 100vh;
     display: flex;
     justify-content: center;
-    transition: color 0.3s ease;
     text-shadow: 0 1px 2px rgba(0,0,0,0.18);
   }
 
@@ -92,7 +84,6 @@
     inset: 0;
     background: var(--bg-overlay);
     z-index: -1;
-    transition: background 0.3s ease;
   }
 
   .page {
@@ -114,32 +105,6 @@
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
   }
-
-  /* ---------- Toggle dark/light ---------- */
-  .theme-toggle {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    border: none;
-    background: var(--card-bg);
-    box-shadow: 0 2px 10px rgba(0,0,0,0.12);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    padding: 0;
-  }
-  .theme-toggle img {
-    width: 20px;
-    height: 20px;
-    display: block;
-  }
-  .theme-toggle .icon-moon { display: none; }
-  [data-theme="dark"] .theme-toggle .icon-sun { display: none; }
-  [data-theme="dark"] .theme-toggle .icon-moon { display: block; }
 
   /* ---------- Cover + tên album ---------- */
   .cover-wrap {
@@ -282,7 +247,7 @@
     transform: translateY(-50%);
     border: 2px solid var(--accent);
     background: transparent;
-    color: var(--accent);
+    color: var(--accent-ink);
     font-size: 0.7rem;
     font-weight: 700;
     padding: 6px 12px;
@@ -482,11 +447,6 @@
 <div class="bg-overlay"></div>
 
 <div class="page">
-
-  <button class="theme-toggle" id="theme-toggle" aria-label="Chuyển đổi giao diện sáng/tối">
-    <img class="icon-sun" src="assets/icons/sun.svg" alt="">
-    <img class="icon-moon" src="assets/icons/moon.svg" alt="">
-  </button>
 
   <div class="cover-wrap">
     <div class="cover-disc">
@@ -1023,32 +983,94 @@ document.getElementById('album-title').textContent = CONFIG.album.title;
 document.getElementById('artist-name').textContent = CONFIG.album.artist;
 document.title = CONFIG.album.title + " — " + CONFIG.album.artist;
 
-// ---------- Dark / Light mode ----------
+// ---------- Theme chuyển dần theo bài: bài 1 tối nhất -> bài 10 sáng nhất ----------
+// Mỗi khi sang bài mới, toàn bộ màu (nền card, chữ, nút, lớp phủ ảnh nền) sẽ fade
+// từ từ sang mức sáng của bài đó trong khoảng THEME_FADE_MS.
 const root = document.documentElement;
-const themeToggle = document.getElementById('theme-toggle');
 
-function applyTheme(theme) {
-  if (theme === 'dark') {
-    root.setAttribute('data-theme', 'dark');
-  } else {
-    root.removeAttribute('data-theme');
+const THEME_DARK  = { card: [26, 18, 16],    text: [245, 239, 236] }; // #1a1210 / #f5efec
+const THEME_LIGHT = { card: [255, 253, 249], text: [43, 35, 32] };    // #fffdf9 / #2b2320
+const THEME_ACCENT = [223, 74, 94];    // #df4a5e — giữ khớp với --accent trong CSS
+const THEME_ACCENT_SOFT = [255, 214, 220]; // hồng nhạt, để chữ hồng vẫn đọc rõ trên nền xám tối
+
+// Độ sáng nền card của từng bài: 0 = tối hẳn, 1 = sáng hẳn. Đúng 10 số, bài 1 → bài 10.
+// Cố ý bước dài hơn ở bài 5 → 6: vùng xám ở giữa làm cả chữ trắng lẫn chữ đen đều khó đọc,
+// nên bài 5 là "tối nhạt" và bài 6 là "sáng đục", chữ đổi màu đúng lúc chuyển qua đó.
+const THEME_STEPS = [0, 0.07, 0.14, 0.21, 0.28, 0.62, 0.72, 0.81, 0.90, 1];
+const THEME_FADE_MS = 2500; // thời gian fade giữa 2 bài (mili giây)
+
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+function mix(a, b, t) {
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+}
+function rgb(c) { return 'rgb(' + c.map(Math.round).join(',') + ')'; }
+function rgba(c, a) { return 'rgba(' + c.map(Math.round).join(',') + ',' + a.toFixed(3) + ')'; }
+function smoothstep(e0, e1, x) {
+  const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
+  return t * t * (3 - 2 * t);
+}
+
+// pos: vị trí bài dạng số thực (0 = bài 1, 9 = bài 10), cho phép nằm giữa 2 bài khi đang fade.
+function applyThemeAt(pos) {
+  const last = THEME_STEPS.length - 1;
+  pos = Math.min(last, Math.max(0, pos));
+  const i = Math.min(last - 1, Math.floor(pos));
+  const u = THEME_STEPS[i] + (THEME_STEPS[i + 1] - THEME_STEPS[i]) * (pos - i); // độ sáng card
+  const t = pos / last;                                                           // tiến độ album
+  const k = smoothstep(0.42, 0.5, u); // 0 = kiểu chữ dark mode, 1 = kiểu chữ light mode
+
+  const card = mix(THEME_DARK.card, THEME_LIGHT.card, u);
+  const text = mix(THEME_DARK.text, THEME_LIGHT.text, k);
+
+  // Chữ hồng / chữ nút link: ở vùng tối sáng dần lên cho dễ đọc, ở vùng sáng đậm dần về hồng gốc
+  const lightInk = mix(THEME_LIGHT.text, THEME_ACCENT, Math.max(0, (u - 0.5) / 0.5));
+  const darkInk = mix(THEME_ACCENT, THEME_ACCENT_SOFT, Math.min(1, u / 0.3));
+  const accentInk = mix(darkInk, lightInk, k);
+  const linkText = mix([255, 255, 255], lightInk, k);
+
+  // Lớp phủ ảnh nền: bài 1 phủ đen 55%, bài 10 chỉ còn lớp trắng rất mỏng 8%
+  const white = rgba([255, 255, 255], 0.08 * t);
+  const overlay = 'linear-gradient(' + white + ',' + white + '), ' + rgba([0, 0, 0], 0.55 * (1 - t));
+
+  const s = root.style;
+  s.setProperty('--card-bg', rgb(card));
+  s.setProperty('--text', rgb(text));
+  s.setProperty('--text-soft', rgba(text, 0.65));
+  s.setProperty('--border-soft', rgba(text, 0.10 - 0.02 * k));
+  s.setProperty('--track-btn-bg', rgba(text, 0.08 - 0.02 * k));
+  s.setProperty('--bg-overlay', overlay);
+  s.setProperty('--link-text', rgb(linkText));
+  s.setProperty('--accent-ink', rgb(accentInk));
+  root.style.colorScheme = k < 0.5 ? 'dark' : 'light';
+}
+
+let themePos = 0;          // vị trí đang hiển thị
+let themeTarget = 0;       // vị trí cần tới
+let themeAnim = null;
+
+function setThemeTrack(idx, instant) {
+  if (idx === themeTarget && !instant) return;
+  themeTarget = idx;
+  if (themeAnim) cancelAnimationFrame(themeAnim);
+  if (instant || reduceMotion.matches) {
+    themePos = idx;
+    applyThemeAt(themePos);
+    return;
   }
+  const from = themePos;
+  const start = performance.now();
+  const step = (now) => {
+    const p = Math.min(1, (now - start) / THEME_FADE_MS);
+    const eased = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2; // ease-in-out
+    themePos = from + (idx - from) * eased;
+    applyThemeAt(themePos);
+    themeAnim = p < 1 ? requestAnimationFrame(step) : null;
+  };
+  themeAnim = requestAnimationFrame(step);
 }
 
-function getInitialTheme() {
-  const saved = localStorage.getItem('theme');
-  if (saved === 'dark' || saved === 'light') return saved;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-}
-
-let currentTheme = getInitialTheme();
-applyTheme(currentTheme);
-
-themeToggle.addEventListener('click', () => {
-  currentTheme = (currentTheme === 'dark') ? 'light' : 'dark';
-  applyTheme(currentTheme);
-  localStorage.setItem('theme', currentTheme);
-});
+setThemeTrack(0, true);
 
 // ---------- Helper thời gian ----------
 function parseTimeToSeconds(str) {
@@ -1333,6 +1355,7 @@ function updateActiveTrack() {
   const idx = getCurrentTrackIndex(audio.currentTime);
   const buttons = trackGrid.querySelectorAll('button');
   buttons.forEach((b, i) => b.classList.toggle('active', i === idx));
+  setThemeTrack(idx);
   if (lyricsMode) renderLyrics(idx);
 }
 
