@@ -2,7 +2,8 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- viewport-fit=cover: ảnh nền phủ kín cả phần tai thỏ / 2 mép khi xoay ngang iPhone -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <!-- Màu thanh địa chỉ trình duyệt trên điện thoại, đặt gần với màu nền tối của trang -->
 <meta name="theme-color" content="#1a1210">
 <title>For the Loves of My Lives — Tuan Le</title>
@@ -68,6 +69,9 @@
     padding: 0;
     min-height: 100%;
   }
+  /* Phòng hờ: chỗ nào ảnh nền chưa phủ tới (vd. kéo quá đầu/cuối trang) thì tối, không trắng.
+     Chỉ đặt cho html, KHÔNG đặt cho body, vì màu nền của body sẽ che mất ảnh nền. */
+  html { background-color: #1a1210; }
 
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -101,6 +105,10 @@
     width: 100%;
     max-width: 480px;
     padding: 12px 20px 48px;
+    /* Chừa chỗ cho tai thỏ và thanh Home trên iPhone (xoay ngang / dọc) */
+    padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right));
+    padding-bottom: max(48px, calc(env(safe-area-inset-bottom) + 24px));
     position: relative;
     animation: page-fade-in 0.6s ease both;
   }
@@ -630,8 +638,9 @@
     display: block;
   }
   /* ---------- Điện thoại xoay ngang ----------
-     Ảnh bìa bên trái, tên album + player + nút Stream & Download bên phải,
-     các link Stream / Social vẫn nằm bên dưới. */
+     Bên trái: ảnh bìa, bên dưới là tên album + nghệ sĩ.
+     Bên phải: player.
+     Bên dưới cả hai: nút Stream & Download, rồi các link Stream / Social. */
   @media (orientation: landscape) and (max-height: 520px) {
     .page { max-width: 900px; }
     .first-screen {
@@ -643,22 +652,36 @@
     }
     .cover-wrap {
       grid-column: 1;
-      grid-row: 1 / span 3;
+      grid-row: 1;
       flex: none !important;
       aspect-ratio: auto !important;
       min-height: 0 !important;
       container-type: normal !important;
     }
     .cover-disc {
-      /* vừa chiều cao màn hình, nhưng không rộng quá 38% bề ngang */
-      width: min(calc(100vh - 24px), 38vw) !important;
-      width: min(calc(100svh - 24px), 38vw) !important;
+      /* chừa chỗ cho tên album bên dưới, và không rộng quá 38% bề ngang */
+      width: min(calc(100vh - 110px), 38vw) !important;
+      width: min(calc(100svh - 110px), 38vw) !important;
       max-width: none !important;
     }
-    .album-info { grid-column: 2; margin-top: 0; }
-    .album-info h1 { font-size: 1.3rem; }
-    .player { grid-column: 2; }
-    .cta-static { grid-column: 2; }
+    .album-info {
+      grid-column: 1;
+      grid-row: 2;
+      margin-top: 12px;
+      width: 0;
+      min-width: 100%; /* chữ xuống dòng theo bề ngang ảnh bìa, không kéo rộng cột */
+    }
+    .album-info h1 { font-size: 1.2rem; }
+    .album-info p { font-size: 1rem; }
+    .player {
+      grid-column: 2;
+      grid-row: 1 / span 2;
+      margin-top: 0;
+    }
+    .cta-static {
+      grid-column: 1 / -1;
+      grid-row: 3;
+    }
     .streaming, .socials {
       max-width: 480px;
       margin-left: auto;
