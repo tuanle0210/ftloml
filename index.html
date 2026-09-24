@@ -667,7 +667,7 @@
      Màn hình chia đôi, cả 2 nửa cao kín màn hình:
        nửa trái: ảnh bìa (đĩa) to nhất có thể, tên album + nghệ sĩ nhỏ bên dưới
        nửa phải: player dạng dọc, 10 nút số chia 2 cột (1–5 | 6–10)
-     Ẩn nút Stream & Download; các link Stream / Social vẫn ở bên dưới, cuộn xuống là thấy.
+     Nút Stream & Download chuyển xuống dưới, nằm ngay trên các nút Streaming; cuộn xuống là thấy.
      MÁY TÍNH (màn hình ngang, rộng từ 900px) cũng dùng bố cục này; phần chỉnh riêng cho
      máy tính nằm ở khối "Máy tính" ngay bên dưới. Nếu sửa điều kiện @media ở đây thì sửa
      cả LANDSCAPE_QUERY trong script cho khớp. */
@@ -746,35 +746,40 @@
       max-height: none;
       margin-top: 10px;
     }
-    .cta-static { display: none; }
+    /* Nút Stream & Download: script chuyển nút ra NGOÀI màn hình đầu, đặt ngay trên
+       các nút Streaming (cuộn xuống mới thấy) */
+    .cta-static { margin: 24px auto 0; }
+    .streaming { margin-top: 16px; }
     .streaming, .socials {
       max-width: 480px;
       margin-left: auto;
       margin-right: auto;
     }
   }
-  /* ---------- Máy tính: màn hình cao nên phóng to các phần lên, và giới hạn chiều cao
-     khu vực player ~760px, căn giữa theo chiều dọc (để các nút số không bị dài ngoẵng
-     trên màn hình to). min-height: 521px để không ảnh hưởng điện thoại xoay ngang. */
+  /* ---------- Máy tính ----------
+     Dựng khung màn hình đầu ĐÚNG như trên điện thoại xoay ngang (khung cố định 900×400),
+     rồi phóng to cả khối bằng zoom cho vừa màn hình. Nhờ vậy tỉ lệ ảnh bìa / player /
+     nút / chữ giống hệt bản điện thoại, chỉ to hơn. Mức zoom (--desk-zoom) do script tính
+     theo kích thước cửa sổ. Sửa kích thước khung thì sửa cả DESK_W / DESK_H trong script.
+     min-height: 521px để không ảnh hưởng điện thoại xoay ngang. */
   @media (orientation: landscape) and (min-width: 900px) and (min-height: 521px) {
-    .page { max-width: 1100px; }
-    .first-screen {
-      column-gap: 48px;
-      padding-top: max(32px, calc((100vh - 760px) / 2));
-      padding-bottom: max(32px, calc((100vh - 760px) / 2));
-      padding-top: max(32px, calc((100dvh - 760px) / 2));
-      padding-bottom: max(32px, calc((100dvh - 760px) / 2));
+    .page {
+      max-width: none;
+      /* căn khối đã phóng to vào giữa màn hình theo chiều dọc */
+      padding-top: max(0px, calc((100vh - 400px * var(--desk-zoom, 1)) / 2));
     }
-    .album-info { margin-top: 18px; }
-    .album-info h1 { font-size: 1.5rem; }
-    .album-info p { font-size: 1.1rem; margin-top: 6px; }
-    .player { max-width: 560px; padding: 22px 24px 24px; }
-    .soundwave { height: 40px; }
-    .progress-row { margin-top: 10px; }
-    .controls { margin-top: 16px; }
-    .track-grid { gap: 10px 12px; margin-top: 16px; }
-    .track-grid button { font-size: 1.05rem; }
-    .lyrics-box { margin-top: 16px; }
+    /* phần Stream nằm ngoài màn hình đầu, cuộn xuống mới thấy (như điện thoại) */
+    .cta-static {
+      margin-top: max(24px, calc((100vh - 400px * var(--desk-zoom, 1)) / 2 + 24px));
+    }
+    .first-screen {
+      zoom: var(--desk-zoom, 1);
+      width: 900px;
+      height: 400px !important;
+      margin: 0 auto;
+      padding-top: 0;
+      padding-bottom: 0;
+    }
   }
   /* Màn hình ngang rất thấp (vd. iPhone SE): gọn thêm một chút */
   @media (orientation: landscape) and (max-height: 340px) {
@@ -2054,7 +2059,42 @@ const firstScreen = coverWrap.parentNode;
 // Phải khớp với điều kiện @media của khối "Điện thoại xoay ngang" trong CSS
 const LANDSCAPE_QUERY = '(orientation: landscape) and (max-height: 520px), (orientation: landscape) and (min-width: 900px)';
 const landscapeMQ = window.matchMedia(LANDSCAPE_QUERY);
+
+// ---------- Máy tính: phóng to khung màn hình đầu cho vừa cửa sổ ----------
+// Phải khớp với khối "Máy tính" trong CSS
+const DESKTOP_QUERY = '(orientation: landscape) and (min-width: 900px) and (min-height: 521px)';
+const DESK_W = 900, DESK_H = 400;   // kích thước khung gốc (giống điện thoại xoay ngang)
+const DESK_MARGIN_X = 96, DESK_MARGIN_Y = 64; // chừa lề quanh khung sau khi phóng to
+const DESK_MAX_ZOOM = 2.2;
+const desktopMQ = window.matchMedia(DESKTOP_QUERY);
+function updateDesktopZoom() {
+  let z = 1;
+  if (desktopMQ.matches) {
+    z = Math.min((window.innerWidth - DESK_MARGIN_X) / DESK_W, (window.innerHeight - DESK_MARGIN_Y) / DESK_H);
+    z = Math.max(1, Math.min(DESK_MAX_ZOOM, z));
+  }
+  root.style.setProperty('--desk-zoom', z.toFixed(3));
+  // Zoom đổi kích thước hiển thị của soundwave -> tạo lại canvas cho nét
+  resizeSoundwave();
+  startSoundwave();
+}
+updateDesktopZoom();
+window.addEventListener('resize', updateDesktopZoom);
+// Nút "Stream & Download": màn hình dọc nằm trong màn hình đầu (dưới player);
+// xoay ngang / máy tính thì chuyển xuống ngay trên các nút Streaming.
+const ctaBtn = document.getElementById('scroll-cta');
+const ctaHome = ctaBtn.previousElementSibling; // khối .player, nút nằm ngay sau nó
+function placeCta() {
+  if (landscapeMQ.matches) {
+    const list = document.getElementById('streaming-list');
+    if (ctaBtn.nextElementSibling !== list) list.before(ctaBtn);
+  } else if (ctaBtn.previousElementSibling !== ctaHome) {
+    ctaHome.after(ctaBtn);
+  }
+}
+
 function layoutFirstScreen() {
+  placeCta();
   const lyricsScroll = lyricsBox.scrollTop;
 
   // Xoay ngang: ảnh bìa và player nằm cạnh nhau, không cần co giãn / giữ cỡ ảnh bìa
