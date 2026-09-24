@@ -667,8 +667,11 @@
      Màn hình chia đôi, cả 2 nửa cao kín màn hình:
        nửa trái: ảnh bìa (đĩa) to nhất có thể, tên album + nghệ sĩ nhỏ bên dưới
        nửa phải: player dạng dọc, 10 nút số chia 2 cột (1–5 | 6–10)
-     Ẩn nút Stream & Download; các link Stream / Social vẫn ở bên dưới, cuộn xuống là thấy. */
-  @media (orientation: landscape) and (max-height: 520px) {
+     Ẩn nút Stream & Download; các link Stream / Social vẫn ở bên dưới, cuộn xuống là thấy.
+     MÁY TÍNH (màn hình ngang, rộng từ 900px) cũng dùng bố cục này; phần chỉnh riêng cho
+     máy tính nằm ở khối "Máy tính" ngay bên dưới. Nếu sửa điều kiện @media ở đây thì sửa
+     cả LANDSCAPE_QUERY trong script cho khớp. */
+  @media (orientation: landscape) and (max-height: 520px), (orientation: landscape) and (min-width: 900px) {
     .page { max-width: 1000px; }
     .first-screen {
       display: grid;
@@ -749,6 +752,29 @@
       margin-left: auto;
       margin-right: auto;
     }
+  }
+  /* ---------- Máy tính: màn hình cao nên phóng to các phần lên, và giới hạn chiều cao
+     khu vực player ~760px, căn giữa theo chiều dọc (để các nút số không bị dài ngoẵng
+     trên màn hình to). min-height: 521px để không ảnh hưởng điện thoại xoay ngang. */
+  @media (orientation: landscape) and (min-width: 900px) and (min-height: 521px) {
+    .page { max-width: 1100px; }
+    .first-screen {
+      column-gap: 48px;
+      padding-top: max(32px, calc((100vh - 760px) / 2));
+      padding-bottom: max(32px, calc((100vh - 760px) / 2));
+      padding-top: max(32px, calc((100dvh - 760px) / 2));
+      padding-bottom: max(32px, calc((100dvh - 760px) / 2));
+    }
+    .album-info { margin-top: 18px; }
+    .album-info h1 { font-size: 1.5rem; }
+    .album-info p { font-size: 1.1rem; margin-top: 6px; }
+    .player { max-width: 560px; padding: 22px 24px 24px; }
+    .soundwave { height: 40px; }
+    .progress-row { margin-top: 10px; }
+    .controls { margin-top: 16px; }
+    .track-grid { gap: 10px 12px; margin-top: 16px; }
+    .track-grid button { font-size: 1.05rem; }
+    .lyrics-box { margin-top: 16px; }
   }
   /* Màn hình ngang rất thấp (vd. iPhone SE): gọn thêm một chút */
   @media (orientation: landscape) and (max-height: 340px) {
@@ -2025,7 +2051,9 @@ window.addEventListener('resize', () => { if (lyricsMode) updateLyricsFade(); })
 // 2) Đang mở Lyrics: giữ nguyên cỡ và vị trí ảnh bìa, player chỉ dài ra phía dưới.
 const coverWrap = document.querySelector('.cover-wrap');
 const firstScreen = coverWrap.parentNode;
-const landscapeMQ = window.matchMedia('(orientation: landscape) and (max-height: 520px)');
+// Phải khớp với điều kiện @media của khối "Điện thoại xoay ngang" trong CSS
+const LANDSCAPE_QUERY = '(orientation: landscape) and (max-height: 520px), (orientation: landscape) and (min-width: 900px)';
+const landscapeMQ = window.matchMedia(LANDSCAPE_QUERY);
 function layoutFirstScreen() {
   const lyricsScroll = lyricsBox.scrollTop;
 
