@@ -31,6 +31,11 @@
   })();
 </script>
 <link rel="preload" as="image" href="assets/Background.webp" fetchpriority="high">
+<!-- Font: Fraunces (tên album, tên bài trong Credits, nút CTA) + Cormorant Garamond (lyrics, credits).
+     display=swap: trong lúc font đang tải vẫn hiện chữ bằng font hệ thống, không bị trắng chữ. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Fraunces:opsz,wght@9..144,500..700&display=swap">
 
 <style>
   /* ============================================================
@@ -53,7 +58,9 @@
     --accent-ink: #df4a5e;           /* chữ màu hồng trên nền card (nút Lyrics) */
     --lyrics-text: #f5efec;          /* chữ trong khung Lyrics/Credits (bài sáng: đen dịu hơn --text) */
     --lyrics-text-soft: rgba(245,239,236,0.65);
-    --bg-blur: 6px;                  /* độ mờ ảnh nền. 0px = nét như cũ, tăng lên để mờ hơn */
+    --bg-blur: 6px;
+    --font-display: "Fraunces", Georgia, "Times New Roman", serif;          /* tên album, tên bài, nút CTA */
+    --font-lyrics: "Cormorant Garamond", Georgia, "Times New Roman", serif; /* lyrics + credits */                  /* độ mờ ảnh nền. 0px = nét như cũ, tăng lên để mờ hơn */
   }
 
   * { box-sizing: border-box; }
@@ -290,8 +297,10 @@
     margin-top: 14px;
   }
   .album-info h1 {
-    font-size: 1.5rem; /* tên album (trước đây 1.25rem) */
-    font-weight: 700;
+    font-family: var(--font-display);
+    font-size: 1.6rem; /* tên album (trước đây 1.25rem) */
+    font-weight: 600;
+    letter-spacing: -0.01em;
     margin: 0;
     line-height: 1.3;
     color: #ffffff;
@@ -412,8 +421,10 @@
     max-height: 220px;
     overflow-y: auto;
     white-space: pre-line;
-    font-size: 0.9rem;
-    line-height: 1.7;
+    font-family: var(--font-lyrics);
+    font-size: 1.08rem;  /* Cormorant nhìn nhỏ hơn font thường ở cùng cỡ, nên tăng lên (trước 0.9rem) */
+    font-weight: 500;    /* 400 quá mảnh trên nền tối */
+    line-height: 1.6;
     color: var(--lyrics-text);
     padding: 2px 4px;
     scrollbar-width: thin;
@@ -423,14 +434,15 @@
   /* Khung Credits dùng chung khung với Lyrics */
   .lyrics-box.credits { white-space: normal; }
   .credit-title {
-    font-weight: 700;
-    font-size: 0.95rem;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.05rem;
     margin-bottom: 12px;
   }
   .credit-row { margin-bottom: 10px; line-height: 1.35; }
   .credit-role {
     display: block;
-    font-size: 0.72rem;
+    font-size: 0.88rem;
     color: var(--lyrics-text-soft);
   }
   .credit-name {
@@ -443,12 +455,12 @@
     border-top: 1px solid var(--border-soft);
   }
   .credit-heading {
-    font-size: 0.72rem;
+    font-size: 0.88rem;
     color: var(--lyrics-text-soft);
     margin-bottom: 10px;
   }
   .credit-plain {
-    font-size: 0.8rem;
+    font-size: 0.92rem;
     color: var(--lyrics-text-soft);
   }
   .lyrics-box.has-more {
@@ -573,7 +585,7 @@
     border-radius: 12px;
     border: none;
     background: var(--track-btn-bg);
-    color: var(--text);
+    color: var(--lyrics-text); /* đen dịu như lyrics ở các bài sáng; bài tối vẫn trắng như cũ */
     font-size: 0.95rem;
     font-weight: 600;
     cursor: pointer;
@@ -594,7 +606,8 @@
     border-radius: 12px;
     background: var(--accent);
     color: var(--accent-contrast);
-    font-size: 0.95rem;
+    font-family: var(--font-display);
+    font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
     text-shadow: 0 1px 2px rgba(0,0,0,0.18);
@@ -2138,6 +2151,10 @@ CONFIG.audio.trackStarts.forEach((_, i) => {
 });
 updateActiveTrack();
 layoutFirstScreen(); // đo bố cục sau khi đã có đủ 10 nút số
+// Font Fraunces / Cormorant tải xong sau khi trang đã hiện -> chữ đổi kích thước -> đo lại
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(() => { layoutFirstScreen(); if (lyricsMode) updateLyricsFade(); });
+}
 
 // ---------- Nhớ vị trí đang nghe ----------
 // Lưu vị trí vào bộ nhớ trình duyệt vài giây một lần. Lần sau mở trang, thanh tiến
