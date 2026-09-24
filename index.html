@@ -1471,6 +1471,15 @@ function loadSoundwaveData() {
   fetch(CONFIG.audio.soundwave)
     .then(r => (r.ok ? r.arrayBuffer() : null))
     .then(buf => {
+      // File được nén gzip (bắt đầu bằng 2 byte 1f 8b) cho nhẹ hơn một nửa -> giải nén.
+      // Trình duyệt quá cũ không giải nén được thì bỏ qua, dùng soundwave giả lập.
+      if (!buf) return null;
+      const head = new Uint8Array(buf, 0, 2);
+      if (head[0] !== 0x1f || head[1] !== 0x8b) return buf;
+      if (!window.DecompressionStream) return null;
+      return new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+    })
+    .then(buf => {
       if (!buf || buf.byteLength < 12) return;
       const bytes = new Uint8Array(buf);
       if (String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]) !== 'SWV1') return;
