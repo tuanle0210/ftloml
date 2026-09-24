@@ -18,6 +18,15 @@
 <meta name="twitter:card" content="summary_large_image">
 
 <link rel="icon" href="assets/cover.jpg">
+<script>
+  /* Máy yếu (ít nhân CPU hoặc ít RAM): gắn class "lite" để tắt các hiệu ứng mờ nặng
+     trên đĩa đang quay. Đĩa vẫn quay bình thường, chỉ bỏ lớp blur. */
+  (function () {
+    var cores = navigator.hardwareConcurrency || 8;
+    var mem = navigator.deviceMemory || 8;
+    if (cores <= 4 || mem <= 4) document.documentElement.classList.add('lite');
+  })();
+</script>
 <link rel="preload" as="image" href="assets/Background.webp" fetchpriority="high">
 
 <style>
@@ -187,6 +196,25 @@
   .cover-disc img.spinning ~ .cover-ring,
   .cover-disc img.spinning ~ .cover-hole {
     transform: translate(-50%, -50%) scale(1);
+  }
+
+  /* Máy yếu: bỏ blur trên ảnh đang quay và lớp kính mờ của vòng nhẫn
+     (2 thứ này phải vẽ lại mỗi khung hình khi đĩa quay, rất tốn GPU) */
+  .lite .cover-disc img.spinning {
+    filter: none;
+  }
+  .lite .cover-ring {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(255,255,255,0.28);
+  }
+  /* Người dùng bật "Giảm chuyển động" trong cài đặt máy: đĩa vẫn thành hình tròn
+     có lỗ ở giữa khi phát, nhưng đứng yên, không quay */
+  @media (prefers-reduced-motion: reduce) {
+    .cover-disc img.spinning {
+      animation: none;
+      filter: none;
+    }
   }
 
   @keyframes cover-spin {
@@ -459,8 +487,8 @@
   </div>
 
   <div class="album-info">
-    <h1 id="album-title"></h1>
-    <p id="artist-name"></p>
+    <h1 id="album-title">For the Loves of My Lives</h1>
+    <p id="artist-name">Tuan Le</p>
   </div>
 
   <div class="player">
@@ -1345,6 +1373,7 @@ progress.addEventListener('input', () => {
   progress.style.setProperty('--progress-pct', (progress.value / 10) + '%');
 });
 progress.addEventListener('change', () => {
+  cancelResume();
   const pct = progress.value / 1000;
   audio.currentTime = pct * (audio.duration || 0);
   isSeeking = false;
@@ -1391,12 +1420,14 @@ btnLyrics.addEventListener('click', () => {
 });
 
 btnNext.addEventListener('click', () => {
+  cancelResume();
   const idx = getCurrentTrackIndex(audio.currentTime);
   const nextIdx = Math.min(idx + 1, trackStartSeconds.length - 1);
   audio.currentTime = trackStartSeconds[nextIdx];
 });
 
 btnPrev.addEventListener('click', () => {
+  cancelResume();
   const idx = getCurrentTrackIndex(audio.currentTime);
   // Nếu đã phát quá 3 giây trong bài hiện tại -> quay về đầu bài hiện tại (giống CD player thật)
   if (audio.currentTime - trackStartSeconds[idx] > 3) {
@@ -1413,12 +1444,98 @@ CONFIG.audio.trackStarts.forEach((_, i) => {
   btn.textContent = String(i + 1);
   btn.addEventListener('click', () => {
     ensureAudioCtxRunning();
+    cancelResume();
     audio.currentTime = trackStartSeconds[i];
     audio.play();
   });
   trackGrid.appendChild(btn);
 });
 updateActiveTrack();
+
+// ---------- Nhớ vị trí đang nghe ----------
+// Lưu vị trí vào bộ nhớ trình duyệt vài giây một lần. Lần sau mở trang, thanh tiến
+// trình, nút số bài và màu theme sẽ ở đúng chỗ cũ, bấm Play là nghe tiếp.
+const RESUME_KEY = 'ftloml:position';
+let pendingResume = null;
+let lastSavedAt = 0;
+
+function savePosition() {
+  try {
+    if (audio.currentTime > 1 && !audio.ended) {
+      localStorage.setItem(RESUME_KEY, String(Math.floor(audio.currentTime)));
+    }
+  } catch (e) {}
+}
+function clearPosition() {
+  try { localStorage.removeItem(RESUME_KEY); } catch (e) {}
+}
+function cancelResume() {
+  pendingResume = null;
+}
+
+try {
+  const saved = parseFloat(localStorage.getItem(RESUME_KEY));
+  if (saved > 5) {
+    pendingResume = saved;
+    audio.currentTime = saved; // trình duyệt sẽ nhảy tới đây khi file nhạc sẵn sàng
+    currentTimeEl.textContent = formatSeconds(saved);
+    const idx = getCurrentTrackIndex(saved);
+    trackGrid.querySelectorAll('button').forEach((b, i) => b.classList.toggle('active', i === idx));
+    setThemeTrack(idx, true);
+  }
+} catch (e) {}
+
+audio.addEventListener('loadedmetadata', () => {
+  if (pendingResume === null) return;
+  if (pendingResume < audio.duration - 5) {
+    // Phòng hờ trình duyệt nào đó (Safari) bỏ qua lệnh nhảy lúc file chưa sẵn sàng
+    if (Math.abs(audio.currentTime - pendingResume) > 1) audio.currentTime = pendingResume;
+  } else {
+    audio.currentTime = 0; // vị trí đã lưu không hợp lệ (vd. file nhạc đã đổi) -> nghe từ đầu
+    clearPosition();
+  }
+  pendingResume = null;
+});
+audio.addEventListener('timeupdate', () => {
+  const now = Date.now();
+  if (now - lastSavedAt > 5000) {
+    lastSavedAt = now;
+    savePosition();
+  }
+});
+audio.addEventListener('pause', savePosition);
+window.addEventListener('pagehide', savePosition);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') savePosition();
+});
+
+// ---------- Nghe hết album: cuộn xuống phần Stream & Download ----------
+audio.addEventListener('ended', () => {
+  clearPosition(); // lần sau mở trang sẽ nghe lại từ đầu
+  document.getElementById('streaming-list').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+// ---------- Phím tắt trên máy tính ----------
+// Space: phát / tạm dừng. Mũi tên phải: bài sau. Mũi tên trái: bài trước.
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const t = e.target;
+  // Đang gõ chữ hoặc đang kéo thanh tiến trình thì để trình duyệt xử lý bình thường
+  if (t.closest && t.closest('input, textarea, select, [contenteditable]')) return;
+
+  if (e.code === 'Space') {
+    // Đang chọn sẵn một nút/link thì Space đã tự bấm nút đó rồi, không xử lý thêm
+    if (t.closest && t.closest('button, a')) return;
+    e.preventDefault(); // chặn việc Space cuộn trang xuống
+    btnPlay.click();
+  } else if (e.code === 'ArrowRight') {
+    e.preventDefault();
+    btnNext.click();
+  } else if (e.code === 'ArrowLeft') {
+    e.preventDefault();
+    btnPrev.click();
+  }
+});
 
 // ---------- Nút "Nghe & Tải về" scroll mượt ----------
 document.getElementById('scroll-cta').addEventListener('click', () => {
