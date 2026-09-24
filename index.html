@@ -757,7 +757,7 @@
     }
   }
   /* ---------- Máy tính ----------
-     Dựng khung màn hình đầu ĐÚNG như trên điện thoại xoay ngang (khung cố định 900×400),
+     Dựng khung màn hình đầu cố định 960×360 (ảnh bìa 1 phần, player 2 phần, nút số xếp ngang),
      rồi phóng to cả khối bằng zoom cho vừa màn hình. Nhờ vậy tỉ lệ ảnh bìa / player /
      nút / chữ giống hệt bản điện thoại, chỉ to hơn. Mức zoom (--desk-zoom) do script tính
      theo kích thước cửa sổ. Sửa kích thước khung thì sửa cả DESK_W / DESK_H trong script.
@@ -765,18 +765,30 @@
   @media (orientation: landscape) and (min-width: 900px) and (min-height: 521px) {
     .page {
       max-width: none;
-      /* căn khối đã phóng to vào giữa màn hình theo chiều dọc */
-      padding-top: max(0px, calc((100vh - 400px * var(--desk-zoom, 1)) / 2));
+      /* khoảng trống phía trên cover + player, bằng khoảng cách xuống nút Stream & Download */
+      padding-top: 56px;
     }
     /* phần Stream nằm ngoài màn hình đầu, cuộn xuống mới thấy (như điện thoại) */
     .cta-static { margin-top: 56px; } /* khoảng cách từ cover + player xuống nút */
     .first-screen {
       zoom: var(--desk-zoom, 1);
-      width: 900px;
-      height: 400px !important;
+      width: 960px;
+      height: 360px !important;
+      /* ảnh bìa 1 phần bên trái, player 2 phần bên phải */
+      grid-template-columns: 1fr 2fr;
+      column-gap: 28px;
       margin: 0 auto;
       padding-top: 0;
       padding-bottom: 0;
+    }
+    .player { max-width: none; padding: 16px 20px 18px; }
+    /* 10 nút số xếp ngang: 2 hàng, mỗi hàng 5 bài (1–5 / 6–10) */
+    .track-grid {
+      grid-template-columns: repeat(5, 1fr);
+      grid-template-rows: repeat(2, minmax(0, 1fr));
+      grid-auto-flow: row;
+      gap: 10px;
+      margin-top: 14px;
     }
   }
   /* Màn hình ngang rất thấp (vd. iPhone SE): gọn thêm một chút */
@@ -2061,7 +2073,7 @@ const landscapeMQ = window.matchMedia(LANDSCAPE_QUERY);
 // ---------- Máy tính: phóng to khung màn hình đầu cho vừa cửa sổ ----------
 // Phải khớp với khối "Máy tính" trong CSS
 const DESKTOP_QUERY = '(orientation: landscape) and (min-width: 900px) and (min-height: 521px)';
-const DESK_W = 900, DESK_H = 400;   // kích thước khung gốc (giống điện thoại xoay ngang)
+const DESK_W = 960, DESK_H = 360;   // kích thước khung gốc (giống điện thoại xoay ngang)
 const DESK_MARGIN_X = 96, DESK_MARGIN_Y = 64; // chừa lề quanh khung sau khi phóng to
 const DESK_MAX_ZOOM = 2.2;
 const DESK_SCALE = 0.5; // to bằng bao nhiêu phần so với mức vừa khít màn hình (1 = khít, 0.5 = một nửa)
