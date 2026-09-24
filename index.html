@@ -713,8 +713,10 @@
     /* Player cao kín nửa phải; lưới số tự giãn để lấp đầy chiều cao */
     .player {
       grid-column: 2;
-      grid-row: 1 / span 2;
-      align-self: stretch;
+      /* Chỉ nằm ở hàng ảnh bìa: cao bằng ảnh bìa (script đặt chiều cao cho khớp),
+         phần ngang hàng tên album / nghệ sĩ bên phải để trống */
+      grid-row: 1;
+      align-self: end;
       display: flex;
       flex-direction: column;
       min-height: 0;
@@ -757,7 +759,7 @@
     }
   }
   /* ---------- Máy tính ----------
-     Dựng khung màn hình đầu cố định 960×360 (ảnh bìa 1 phần, player 2 phần, nút số xếp ngang),
+     Dựng khung màn hình đầu cố định 1080×400 (ảnh bìa 1 phần, player 2 phần, nút số xếp ngang),
      rồi phóng to cả khối bằng zoom cho vừa màn hình. Nhờ vậy tỉ lệ ảnh bìa / player /
      nút / chữ giống hệt bản điện thoại, chỉ to hơn. Mức zoom (--desk-zoom) do script tính
      theo kích thước cửa sổ. Sửa kích thước khung thì sửa cả DESK_W / DESK_H trong script.
@@ -765,15 +767,15 @@
   @media (orientation: landscape) and (min-width: 900px) and (min-height: 521px) {
     .page {
       max-width: none;
-      /* khoảng trống phía trên cover + player, bằng khoảng cách xuống nút Stream & Download */
+      /* khoảng trống phía trên cover + player, trên cùng của trang */
       padding-top: 56px;
     }
     /* phần Stream nằm ngoài màn hình đầu, cuộn xuống mới thấy (như điện thoại) */
-    .cta-static { margin-top: 56px; } /* khoảng cách từ cover + player xuống nút */
+    .cta-static { margin-top: 24px; } /* khoảng cách từ cover + player xuống nút */
     .first-screen {
       zoom: var(--desk-zoom, 1);
-      width: 960px;
-      height: 360px !important;
+      width: 1080px;
+      height: 400px !important;
       /* ảnh bìa 1 phần bên trái, player 2 phần bên phải */
       grid-template-columns: 1fr 2fr;
       column-gap: 28px;
@@ -781,7 +783,8 @@
       padding-top: 0;
       padding-bottom: 0;
     }
-    .player { max-width: none; padding: 16px 20px 18px; }
+    .player { max-width: none; padding: 18px 22px 20px; }
+    .soundwave { height: 48px; }  /* soundwave cao hơn bản điện thoại (28px) */
     /* 10 nút số xếp ngang: 2 hàng, mỗi hàng 5 bài (1–5 / 6–10) */
     .track-grid {
       grid-template-columns: repeat(5, 1fr);
@@ -2066,6 +2069,8 @@ window.addEventListener('resize', () => { if (lyricsMode) updateLyricsFade(); })
 // 2) Đang mở Lyrics: giữ nguyên cỡ và vị trí ảnh bìa, player chỉ dài ra phía dưới.
 const coverWrap = document.querySelector('.cover-wrap');
 const firstScreen = coverWrap.parentNode;
+const coverDisc = coverWrap.querySelector('.cover-disc');
+const playerEl = document.querySelector('.player');
 // Phải khớp với điều kiện @media của khối "Điện thoại xoay ngang" trong CSS
 const LANDSCAPE_QUERY = '(orientation: landscape) and (max-height: 520px), (orientation: landscape) and (min-width: 900px)';
 const landscapeMQ = window.matchMedia(LANDSCAPE_QUERY);
@@ -2073,7 +2078,7 @@ const landscapeMQ = window.matchMedia(LANDSCAPE_QUERY);
 // ---------- Máy tính: phóng to khung màn hình đầu cho vừa cửa sổ ----------
 // Phải khớp với khối "Máy tính" trong CSS
 const DESKTOP_QUERY = '(orientation: landscape) and (min-width: 900px) and (min-height: 521px)';
-const DESK_W = 960, DESK_H = 360;   // kích thước khung gốc (giống điện thoại xoay ngang)
+const DESK_W = 1080, DESK_H = 400;   // kích thước khung gốc (giống điện thoại xoay ngang)
 const DESK_MARGIN_X = 96, DESK_MARGIN_Y = 64; // chừa lề quanh khung sau khi phóng to
 const DESK_MAX_ZOOM = 2.2;
 const DESK_SCALE = 0.5; // to bằng bao nhiêu phần so với mức vừa khít màn hình (1 = khít, 0.5 = một nửa)
@@ -2082,7 +2087,8 @@ function updateDesktopZoom() {
   let z = 1;
   if (desktopMQ.matches) {
     z = Math.min((window.innerWidth - DESK_MARGIN_X) / DESK_W, (window.innerHeight - DESK_MARGIN_Y) / DESK_H);
-    z = Math.max(1, Math.min(DESK_MAX_ZOOM, z * DESK_SCALE));
+    // Không nhỏ hơn 1 (trừ khi cửa sổ quá hẹp, lúc đó thu nhỏ cho vừa)
+    z = Math.min(DESK_MAX_ZOOM, Math.max(Math.min(1, z), z * DESK_SCALE));
   }
   root.style.setProperty('--desk-zoom', z.toFixed(3));
   // Zoom đổi kích thước hiển thị của soundwave -> tạo lại canvas cho nét
@@ -2110,6 +2116,9 @@ function layoutFirstScreen() {
 
   // Xoay ngang: ảnh bìa và player nằm cạnh nhau, không cần co giãn / giữ cỡ ảnh bìa
   if (landscapeMQ.matches) {
+    // Player cao đúng bằng ảnh bìa (đo sau khi bố cục ngang đã áp dụng)
+    playerEl.style.height = '';
+    playerEl.style.height = coverDisc.offsetHeight + 'px';
     coverWrap.style.flex = '';
     firstScreen.style.paddingTop = '';
     firstScreen.style.height = '';
@@ -2122,6 +2131,7 @@ function layoutFirstScreen() {
   }
 
   // Về bố cục gốc (lưới số) để đo
+  playerEl.style.height = '';
   coverWrap.style.flex = '';
   firstScreen.style.paddingTop = '';
   firstScreen.classList.remove('expanded');
