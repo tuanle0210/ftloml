@@ -124,9 +124,15 @@
   .first-screen {
     display: flex;
     flex-direction: column;
-    min-height: calc(100vh - 12px);   /* 12px = khoảng đệm trên cùng của .page */
-    min-height: calc(100svh - 12px);
+    justify-content: center; /* màn hình dư chỗ thì chia đều trên/dưới, không để hở giữa ảnh và tên */
     padding-bottom: 12px;
+  }
+  /* Đang mở Lyrics: cho khung dài ra tự nhiên */
+  .first-screen.expanded {
+    height: auto !important;
+    min-height: calc(100vh - 12px);
+    min-height: calc(100svh - 12px);
+    justify-content: flex-start; /* giữ ảnh bìa đứng yên, player chỉ dài/ngắn ở phía dưới */
   }
   .cover-wrap {
     display: flex;
@@ -134,8 +140,14 @@
     align-items: center;
   }
   @supports (width: 1cqh) {
+    .first-screen {
+      height: calc(100vh - 12px);   /* 12px = khoảng đệm trên cùng của .page */
+      height: calc(100svh - 12px);
+    }
     .cover-wrap {
-      flex: 1 1 0;
+      /* Mặc định cao bằng bề ngang (ảnh vuông to nhất), thiếu chỗ thì tự co lại */
+      flex: 0 1 auto;
+      aspect-ratio: 1 / 1;
       min-height: 160px;    /* ảnh bìa không bao giờ nhỏ hơn mức này */
       container-type: size;
     }
@@ -1618,7 +1630,17 @@ btnLyrics.addEventListener('click', () => {
   lyricsMode = !lyricsMode;
   // Khung lyrics cao hơn lưới số: giữ nguyên cỡ ảnh bìa, để player dài ra phía dưới
   // thay vì ảnh bìa bị co lại mỗi lần bật/tắt lyrics
-  coverWrap.style.flex = lyricsMode ? '0 0 ' + coverWrap.offsetHeight + 'px' : '';
+  const firstScreen = coverWrap.parentNode;
+  if (lyricsMode) {
+    // Ghi nhớ đúng vị trí hiện tại của ảnh bìa để nó không nhảy khi bật lyrics
+    const offset = coverWrap.getBoundingClientRect().top - firstScreen.getBoundingClientRect().top;
+    coverWrap.style.flex = '0 0 ' + coverWrap.offsetHeight + 'px';
+    firstScreen.style.paddingTop = offset + 'px';
+  } else {
+    coverWrap.style.flex = '';
+    firstScreen.style.paddingTop = '';
+  }
+  firstScreen.classList.toggle('expanded', lyricsMode);
   if (lyricsMode) {
     trackGrid.style.display = 'none';
     lyricsBox.style.display = 'block';
