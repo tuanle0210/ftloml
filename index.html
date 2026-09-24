@@ -1705,18 +1705,25 @@ window.addEventListener('resize', () => {
   if (lyricsMode) updateLyricsFade();
 });
 
+// Vị trí "hiện tại" để tính bài trước/sau. Lúc vừa mở trang mà nhạc chưa tải xong,
+// một số trình duyệt (Safari) vẫn báo 0:00 dù trang đang chờ nghe tiếp từ chỗ cũ.
+function currentPosition() {
+  return pendingResume !== null ? pendingResume : audio.currentTime;
+}
+
 btnNext.addEventListener('click', () => {
+  const idx = getCurrentTrackIndex(currentPosition());
   cancelResume();
-  const idx = getCurrentTrackIndex(audio.currentTime);
   const nextIdx = Math.min(idx + 1, trackStartSeconds.length - 1);
   audio.currentTime = trackStartSeconds[nextIdx];
 });
 
 btnPrev.addEventListener('click', () => {
+  const now = currentPosition();
+  const idx = getCurrentTrackIndex(now);
   cancelResume();
-  const idx = getCurrentTrackIndex(audio.currentTime);
   // Nếu đã phát quá 3 giây trong bài hiện tại -> quay về đầu bài hiện tại (giống CD player thật)
-  if (audio.currentTime - trackStartSeconds[idx] > 3) {
+  if (now - trackStartSeconds[idx] > 3) {
     audio.currentTime = trackStartSeconds[idx];
   } else {
     const prevIdx = Math.max(idx - 1, 0);
@@ -1788,6 +1795,7 @@ audio.addEventListener('loadedmetadata', () => {
   } else {
     audio.currentTime = 0; // vị trí đã lưu không hợp lệ (vd. file nhạc đã đổi) -> nghe từ đầu
     clearPosition();
+    setThemeTrack(0, true); // về màu bài 1 ngay, không fade ngược từ bài cuối về
   }
   pendingResume = null;
 });
