@@ -104,7 +104,7 @@
   .page {
     width: 100%;
     max-width: 480px;
-    padding: 12px 20px 48px;
+    padding: 0 20px 48px;
     /* Chừa chỗ cho tai thỏ và thanh Home trên iPhone (xoay ngang / dọc) */
     padding-left: max(20px, env(safe-area-inset-left));
     padding-right: max(20px, env(safe-area-inset-right));
@@ -130,14 +130,24 @@
      Ảnh bìa + tên + player + nút Stream & Download luôn vừa khít 1 màn hình.
      Ảnh bìa tự co giãn để lấp phần chỗ còn lại: màn hình cao thì ảnh to (tối đa
      bằng bề ngang khung player), màn hình thấp thì ảnh nhỏ lại. */
+  /* Màn hình đầu chiếm đúng 1 màn hình: phần Stream / Social nằm ngay bên dưới,
+     cuộn xuống mới thấy. Phía trên chừa một khoảng để thanh trạng thái và thanh địa
+     chỉ thu gọn của Safari không che ảnh bìa. */
   .first-screen {
     display: flex;
     flex-direction: column;
-    padding-bottom: 12px;
+    justify-content: center;
+    box-sizing: border-box;
+    min-height: 100vh;
+    min-height: 100svh;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 36px);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
   }
-  /* Đang mở Lyrics: cho khung dài ra tự nhiên */
+  /* Đang mở Lyrics / Credits: cho khung dài ra tự nhiên, ảnh bìa đứng yên */
   .first-screen.expanded {
+    height: auto !important;
     max-height: none !important;
+    justify-content: flex-start;
   }
   .cover-wrap {
     display: flex;
@@ -146,10 +156,9 @@
   }
   @supports (width: 1cqh) {
     .first-screen {
-      /* Không cao quá 1 màn hình (thiếu chỗ thì ảnh bìa tự co), nhưng cũng không
-         kéo dài thêm khi dư chỗ -> không có khoảng hở thừa */
-      max-height: calc(100vh - 12px);   /* 12px = khoảng đệm trên cùng của .page */
-      max-height: calc(100svh - 12px);
+      /* Cao đúng 1 màn hình; thiếu chỗ thì ảnh bìa tự co lại */
+      height: 100vh;
+      height: 100svh;
     }
     .cover-wrap {
       /* Mặc định cao bằng bề ngang (ảnh vuông to nhất), thiếu chỗ thì tự co lại */
@@ -649,6 +658,9 @@
       column-gap: 20px;
       align-items: start;
       max-height: none !important;
+      height: auto !important;
+      min-height: 0;
+      padding-top: calc(env(safe-area-inset-top, 0px) + 12px);
     }
     .cover-wrap {
       grid-column: 1;
@@ -1919,7 +1931,8 @@ function layoutFirstScreen() {
   if (landscapeMQ.matches) {
     coverWrap.style.flex = '';
     firstScreen.style.paddingTop = '';
-    firstScreen.style.maxHeight = '';
+    firstScreen.style.height = '';
+    firstScreen.style.justifyContent = '';
     firstScreen.classList.remove('expanded');
     trackGrid.style.display = lyricsMode ? 'none' : '';
     lyricsBox.style.display = lyricsMode ? 'block' : 'none';
@@ -1933,9 +1946,13 @@ function layoutFirstScreen() {
   firstScreen.classList.remove('expanded');
   trackGrid.style.display = '';
   lyricsBox.style.display = 'none';
-  firstScreen.style.maxHeight = '';
+  firstScreen.style.height = '';
+  firstScreen.style.justifyContent = 'flex-start'; // đo khi xếp từ trên xuống
   if (firstScreen.scrollHeight - firstScreen.clientHeight > 1) {
-    firstScreen.style.maxHeight = firstScreen.scrollHeight + 'px';
+    // Màn hình quá thấp: cho khung dài ra, giữ xếp từ trên xuống để không bị cắt phần đầu
+    firstScreen.style.height = firstScreen.scrollHeight + 'px';
+  } else {
+    firstScreen.style.justifyContent = '';
   }
 
   if (!lyricsMode) return;
