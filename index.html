@@ -57,6 +57,7 @@
   /* Hiệu ứng bấm mượt cho mọi nút/link có thể bấm — hơi lún nhẹ khi chạm */
   button, .streaming a, .socials a {
     transition: transform 0.15s ease;
+    touch-action: manipulation; /* bấm nhanh 2 lần (vd. Next Next) không bị phóng to trang trên iPhone */
   }
   button:active, .streaming a:active, .socials a:active {
     transform: scale(0.95);
@@ -1432,6 +1433,9 @@ function startSoundwave() {
 }
 // Đổi kích thước canvas sẽ xoá hình cũ, nên vẽ lại
 window.addEventListener('resize', startSoundwave);
+if (window.ResizeObserver) {
+  new ResizeObserver(() => { resizeSoundwave(); startSoundwave(); }).observe(soundwaveCanvas);
+}
 
 
 const audio = document.getElementById('audio');
@@ -1452,6 +1456,7 @@ let isSeeking = false;
 function setPlayIcon(isPlaying) {
   playIcon.src = isPlaying ? 'assets/icons/pause.svg' : 'assets/icons/play.svg';
 }
+new Image().src = 'assets/icons/pause.svg'; // tải sẵn icon Pause
 
 const coverImg = document.getElementById('cover-img');
 function setCoverSpinning(isPlaying) {
@@ -1504,7 +1509,9 @@ audio.addEventListener('playing', () => {
 audio.addEventListener('waiting', () => {
   if (audio.paused) return;
   btnPlay.classList.add('loading');
-  setCoverSpinning(false);  // đang tải nhạc thì tạm ngừng quay
+  // Đang tải nhạc (vd. vừa nhảy bài) -> chỉ tạm dừng quay, giữ nguyên hình đĩa tròn.
+  // (Trước đây đĩa bị biến về hình vuông rồi lại tròn mỗi lần nhảy bài.)
+  coverImg.style.animationPlayState = 'paused';
 });
 audio.addEventListener('error', () => {
   btnPlay.classList.remove('loading');
@@ -1567,6 +1574,7 @@ function hideSeekLabel() {
 }
 
 progress.addEventListener('input', () => {
+  clearTimeout(seekCancelTimer); // vẫn đang kéo -> chưa chốt
   isSeeking = true;
   const pct = progress.value / 1000;
   const seekTime = pct * (audio.duration || 0);
@@ -1574,16 +1582,28 @@ progress.addEventListener('input', () => {
   progress.style.setProperty('--progress-pct', (progress.value / 10) + '%');
   showSeekLabel(seekTime);
 });
-progress.addEventListener('pointerup', hideSeekLabel);
-progress.addEventListener('touchend', hideSeekLabel);
-progress.addEventListener('blur', hideSeekLabel);
-progress.addEventListener('change', () => {
+function commitSeek() {
   hideSeekLabel();
+  if (!isSeeking) return;
   cancelResume();
   const pct = progress.value / 1000;
   audio.currentTime = pct * (audio.duration || 0);
   isSeeking = false;
-});
+}
+progress.addEventListener('pointerup', hideSeekLabel);
+progress.addEventListener('touchend', hideSeekLabel);
+progress.addEventListener('blur', commitSeek);
+progress.addEventListener('change', commitSeek);
+// Kéo bị hủy giữa chừng (vd. ngón tay trượt thành cuộn trang): vẫn chốt vị trí,
+// nếu không thanh tiến trình sẽ đứng im mãi. Chờ một chút rồi mới chốt, vì một số
+// trình duyệt (Safari iOS) báo "hủy" ngay lúc bắt đầu kéo dù người dùng vẫn đang kéo.
+let seekCancelTimer = null;
+function commitSeekLater() {
+  clearTimeout(seekCancelTimer);
+  seekCancelTimer = setTimeout(commitSeek, 500);
+}
+progress.addEventListener('pointercancel', commitSeekLater);
+progress.addEventListener('touchcancel', commitSeekLater);
 
 function getCurrentTrackIndex(time) {
   let idx = 0;
@@ -1634,32 +1654,55 @@ function updateLyricsFade() {
 lyricsBox.addEventListener('scroll', updateLyricsFade, { passive: true });
 window.addEventListener('resize', () => { if (lyricsMode) updateLyricsFade(); });
 
+// ---------- Bố cục màn hình đầu ----------
+// 1) Màn hình quá thấp (vd. điện thoại xoay ngang): ảnh bìa đã co tới mức nhỏ nhất mà
+//    vẫn không đủ chỗ -> cho khung dài ra, để phần Stream bên dưới không đè lên player.
+// 2) Đang mở Lyrics: giữ nguyên cỡ và vị trí ảnh bìa, player chỉ dài ra phía dưới.
 const coverWrap = document.querySelector('.cover-wrap');
+const firstScreen = coverWrap.parentNode;
+function layoutFirstScreen() {
+  const lyricsScroll = lyricsBox.scrollTop;
+
+  // Về bố cục gốc (lưới số) để đo
+  coverWrap.style.flex = '';
+  firstScreen.style.paddingTop = '';
+  firstScreen.classList.remove('expanded');
+  trackGrid.style.display = '';
+  lyricsBox.style.display = 'none';
+  firstScreen.style.maxHeight = '';
+  if (firstScreen.scrollHeight - firstScreen.clientHeight > 1) {
+    firstScreen.style.maxHeight = firstScreen.scrollHeight + 'px';
+  }
+
+  if (!lyricsMode) return;
+  const offset = coverWrap.getBoundingClientRect().top - firstScreen.getBoundingClientRect().top;
+  coverWrap.style.flex = '0 0 ' + coverWrap.offsetHeight + 'px';
+  firstScreen.style.paddingTop = offset + 'px';
+  firstScreen.classList.add('expanded');
+  trackGrid.style.display = 'none';
+  lyricsBox.style.display = 'block';
+  lyricsBox.scrollTop = lyricsScroll;
+}
+
 btnLyrics.addEventListener('click', () => {
   lyricsMode = !lyricsMode;
-  // Khung lyrics cao hơn lưới số: giữ nguyên cỡ ảnh bìa, để player dài ra phía dưới
-  // thay vì ảnh bìa bị co lại mỗi lần bật/tắt lyrics
-  const firstScreen = coverWrap.parentNode;
+  layoutFirstScreen();
   if (lyricsMode) {
-    // Ghi nhớ đúng vị trí hiện tại của ảnh bìa để nó không nhảy khi bật lyrics
-    const offset = coverWrap.getBoundingClientRect().top - firstScreen.getBoundingClientRect().top;
-    coverWrap.style.flex = '0 0 ' + coverWrap.offsetHeight + 'px';
-    firstScreen.style.paddingTop = offset + 'px';
-  } else {
-    coverWrap.style.flex = '';
-    firstScreen.style.paddingTop = '';
-  }
-  firstScreen.classList.toggle('expanded', lyricsMode);
-  if (lyricsMode) {
-    trackGrid.style.display = 'none';
-    lyricsBox.style.display = 'block';
     btnLyrics.textContent = 'Tracks';
     renderLyrics(getCurrentTrackIndex(audio.currentTime));
   } else {
-    trackGrid.style.display = '';
-    lyricsBox.style.display = 'none';
     btnLyrics.textContent = 'Lyrics';
   }
+});
+
+// Xoay màn hình / đổi kích thước cửa sổ thì tính lại. Khi đang mở Lyrics chỉ tính lại
+// lúc bề ngang đổi (xoay máy), vì thanh địa chỉ trên điện thoại ẩn/hiện liên tục khi cuộn.
+let lastLayoutWidth = window.innerWidth;
+window.addEventListener('resize', () => {
+  if (lyricsMode && window.innerWidth === lastLayoutWidth) return;
+  lastLayoutWidth = window.innerWidth;
+  layoutFirstScreen();
+  if (lyricsMode) updateLyricsFade();
 });
 
 btnNext.addEventListener('click', () => {
@@ -1700,6 +1743,7 @@ CONFIG.audio.trackStarts.forEach((_, i) => {
   trackGrid.appendChild(btn);
 });
 updateActiveTrack();
+layoutFirstScreen(); // đo bố cục sau khi đã có đủ 10 nút số
 
 // ---------- Nhớ vị trí đang nghe ----------
 // Lưu vị trí vào bộ nhớ trình duyệt vài giây một lần. Lần sau mở trang, thanh tiến
@@ -1726,11 +1770,13 @@ try {
   const saved = parseFloat(localStorage.getItem(RESUME_KEY));
   if (saved > 5) {
     pendingResume = saved;
-    audio.currentTime = saved; // trình duyệt sẽ nhảy tới đây khi file nhạc sẵn sàng
     currentTimeEl.textContent = formatSeconds(saved);
     const idx = getCurrentTrackIndex(saved);
     trackGrid.querySelectorAll('button').forEach((b, i) => b.classList.toggle('active', i === idx));
     setThemeTrack(idx, true);
+    // Trình duyệt sẽ nhảy tới đây khi file nhạc sẵn sàng. Safari cũ có thể báo lỗi ở
+    // bước này -> bỏ qua, sự kiện loadedmetadata bên dưới sẽ nhảy lại sau.
+    try { audio.currentTime = saved; } catch (e) {}
   }
 } catch (e) {}
 
@@ -1768,14 +1814,17 @@ audio.addEventListener('ended', () => {
 // Space: phát / tạm dừng. Mũi tên phải: bài sau. Mũi tên trái: bài trước.
 document.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.repeat) return; // giữ phím không bị bật/tắt hay chuyển bài liên tục
   const t = e.target;
   // Đang gõ chữ hoặc đang kéo thanh tiến trình thì để trình duyệt xử lý bình thường
   if (t.closest && t.closest('input, textarea, select, [contenteditable]')) return;
 
   if (e.code === 'Space') {
-    // Đang chọn sẵn một nút/link thì Space đã tự bấm nút đó rồi, không xử lý thêm
-    if (t.closest && t.closest('button, a')) return;
-    e.preventDefault(); // chặn việc Space cuộn trang xuống
+    // Space luôn là phát/tạm dừng. Trước đây nếu vừa bấm chuột vào một nút (vd. Prev),
+    // nút đó vẫn đang được chọn nên Space lại bấm nút đó thay vì dừng nhạc.
+    // (Người dùng bàn phím vẫn bấm nút đang chọn bằng phím Enter như bình thường.)
+    if (t.closest && t.closest('a')) return; // đang chọn một link thì để yên
+    e.preventDefault(); // chặn Space cuộn trang và chặn Space bấm vào nút đang chọn
     btnPlay.click();
   } else if (e.code === 'ArrowRight') {
     e.preventDefault();
