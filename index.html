@@ -334,16 +334,24 @@
     text-shadow: none;
     transition: transform 0.15s ease;
   }
-  /* Điện thoại hẹp (≤ 400px): nút Lyrics bị đè lên nút Next. Chừa chỗ cho nút Lyrics
-     ở bên phải và thu hẹp khoảng cách giữa 3 nút điều khiển. */
-  @media (max-width: 400px) {
-    .controls {
-      gap: 14px;
-      padding-right: 58px;
-    }
-    .btn-lyrics-toggle {
-      padding: 6px 10px;
-    }
+  /* Nút Credits nằm bên trái, đối xứng với nút Lyrics bên phải */
+  .btn-credits-toggle {
+    left: 0;
+    right: auto;
+  }
+  /* Điện thoại hẹp: thu nhỏ nhẹ 3 nút điều khiển và 2 nút Credits/Lyrics
+     để không đè lên nhau */
+  @media (max-width: 420px) {
+    .controls { gap: 12px; }
+    #btn-prev img, #btn-next img { width: 40px; height: 40px; }
+    #btn-play img { width: 54px; height: 54px; }
+    .btn-lyrics-toggle { padding: 6px 9px; font-size: 0.68rem; }
+  }
+  @media (max-width: 365px) {
+    .controls { gap: 8px; }
+    #btn-prev img, #btn-next img { width: 34px; height: 34px; }
+    #btn-play img { width: 48px; height: 48px; }
+    .btn-lyrics-toggle { padding: 5px 7px; font-size: 0.62rem; }
   }
   .btn-lyrics-toggle:active {
     transform: translateY(-50%) scale(0.92);
@@ -362,6 +370,37 @@
     scrollbar-color: var(--accent) transparent;
   }
   /* Còn chữ bên dưới -> mờ dần ở mép dưới để gợi ý cuộn xuống */
+  /* Khung Credits dùng chung khung với Lyrics */
+  .lyrics-box.credits { white-space: normal; }
+  .credit-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-bottom: 12px;
+  }
+  .credit-row { margin-bottom: 10px; line-height: 1.35; }
+  .credit-role {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--text-soft);
+  }
+  .credit-name {
+    display: block;
+    font-weight: 600;
+  }
+  .credit-album {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border-soft);
+  }
+  .credit-heading {
+    font-size: 0.72rem;
+    color: var(--text-soft);
+    margin-bottom: 10px;
+  }
+  .credit-plain {
+    font-size: 0.8rem;
+    color: var(--text-soft);
+  }
   .lyrics-box.has-more {
     mask-image: linear-gradient(to bottom, black calc(100% - 48px), transparent);
     -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 48px), transparent);
@@ -600,6 +639,7 @@
 
   <div class="player">
     <div class="controls">
+      <button id="btn-credits" class="btn-lyrics-toggle btn-credits-toggle" type="button">Credits</button>
       <button id="btn-prev" aria-label="Bài trước">
         <img src="assets/icons/previous.svg" alt="">
       </button>
@@ -1057,6 +1097,92 @@ So baby,
 It's gonna be just fine
 I'm always by your side`,
   ],
+
+  // ---- Credit từng bài, bấm nút "Credits" bên trái nút Prev sẽ hiện ra ----
+  // Phải có đúng 10 mục, theo đúng thứ tự bài 1 → bài 10.
+  // Mỗi dòng ghi "Vai trò: Tên", xuống dòng bằng Enter như phần lyrics.
+  credits: [
+`Producer: Ngo Ba Khoi
+Mixing and Mastering Engineer: Nguyen Thai Son`,
+
+`Composer: Le Anh Tuan
+Lyricist: Le Anh Tuan
+Producer: Ngo Ba Khoi
+Recording Engineer: Phan Duc Manh
+Mixing and Mastering Engineer: Nguyen Thai Son`,
+
+`Composer: Le Anh Tuan
+Lyricist: Le Anh Tuan
+Producer: Ngo Ba Khoi
+Vocals: Tran Thi Thu Thao
+Backing Vocals: Tran Thi Thu Thao, Phan Duc Manh
+Recording Engineer: Phan Duc Manh
+Mixing and Mastering Engineer: Nguyen Thai Son`,
+
+`Composer: Le Anh Tuan
+Lyricist: Le Anh Tuan
+Producer: Phan Duc Manh
+Electric Guitar: Phan Duc Manh
+Drum Arrangement: Nguyen Hai Minh
+Recording Engineer: Phan Duc Manh
+Mixing and Mastering Engineer: Nguyen Thai Son`,
+
+`Composer: Le Anh Tuan
+Lyricist: Le Anh Tuan
+Co-lyricist: Truong Quang Anh
+Producer: Phan Duc Manh
+Backing Vocals: Phan Duc Manh
+Electric Guitar: Phan Duc Manh
+Drum Arrangement: Nguyen Hai Minh
+Recording Engineer: Phan Duc Manh
+Mixing and Mastering Engineer: Nguyen Thai Son`,
+
+`Composer: Le Anh Tuan
+Lyricist: Le Anh Tuan
+Producer: Ngo Ba Khoi
+Recording Engineer: Phan Duc Manh
+Mixing and Mastering Engineer: Nguyen Thai Son`,
+
+`Composer: Le Anh Tuan
+Lyricist: Le Anh Tuan
+Producer: Nguyen Hai Minh
+Electric Guitar: Nguyen Hai Minh
+Bass Guitar: Nguyen Vu Viet Anh
+Keyboards: Trinh Ngo Tri Anh
+Drum Arrangement: Nguyen Hai Minh
+Recording Engineer: Phan Duc Manh
+Mixing and Mastering Engineer: Nguyen Thai Son`,
+
+`Composer: Le Anh Tuan
+Lyricist: Le Anh Tuan
+Producer: Le Doan Anh Quan
+Electric Guitar: Le Doan Anh Quan
+Recording Engineer: Le Doan Anh Quan
+Mixing and Mastering Engineer: Trieu Quoc An Khuong`,
+
+`Composer: Le Anh Tuan
+Lyricist: Le Anh Tuan
+Producer: Ngo Ba Khoi
+Recording Engineer: Le Doan Anh Quan
+Mixing and Mastering Engineer: Trieu Quoc An Khuong`,
+
+`Composer: Le Anh Tuan
+Lyricist: Le Anh Tuan
+Producer: Le Doan Anh Quan
+Electric Guitar: Le Doan Anh Quan
+Keyboards: Nguyen Thai Son
+Strings Arrangement: Le Doan Anh Quan
+Recording Engineer: Phan Duc Manh
+Mixing and Mastering Engineer: Hoang Minh Tuan`,
+  ],
+
+  // ---- Credit chung cả album, hiện ở cuối khung Credits của mọi bài ----
+  albumCredits:
+`Artist: Tuan Le
+Executive Producer: Le Anh Tuan
+Creative Director: Le Anh Tuan
+Art Director/Designer: Le Anh Tuan
+℗ © 2026 Tuan Le.`,
 
   // ---- Các nút Streaming (thêm platform mới chỉ cần thêm 1 dòng ở đây) ----
   // Lưu ý: hiện các nút đang dùng chung 1 kiểu trắng/viền hồng theo theme,
@@ -1626,12 +1752,62 @@ function updateTabTitle(idx) {
 // ---------- Lyrics: chuyển đổi lưới số <-> khung lyrics ----------
 const btnLyrics = document.getElementById('btn-lyrics');
 const lyricsBox = document.getElementById('lyrics-box');
-let lyricsMode = false;
-let lyricsIdx = -1; // bài đang hiện lời trong khung lyrics
+const btnCredits = document.getElementById('btn-credits');
+let panel = null;        // đang mở gì thay cho lưới số: 'lyrics', 'credits' hoặc null
+let lyricsMode = false;  // true khi đang mở Lyrics HOẶC Credits (dùng chung 1 khung)
+let lyricsIdx = -1;      // bài đang hiện trong khung
+
+// Thêm các dòng "Vai trò: Tên" vào khung credit
+function appendCreditLines(parent, text) {
+  String(text || '').split('\n').forEach(line => {
+    line = line.trim();
+    if (!line) return;
+    const row = document.createElement('div');
+    const cut = line.indexOf(': ');
+    if (cut > 0) {
+      row.className = 'credit-row';
+      const role = document.createElement('span');
+      role.className = 'credit-role';
+      role.textContent = line.slice(0, cut);
+      const name = document.createElement('span');
+      name.className = 'credit-name';
+      name.textContent = line.slice(cut + 2);
+      row.append(role, name);
+    } else {
+      row.className = 'credit-row credit-plain'; // dòng không có "Vai trò:" (vd. ℗ ©)
+      row.textContent = line;
+    }
+    parent.appendChild(row);
+  });
+}
+
+function renderCredits(idx) {
+  lyricsBox.textContent = '';
+  const title = document.createElement('div');
+  title.className = 'credit-title';
+  title.textContent = (CONFIG.trackTitles && CONFIG.trackTitles[idx]) || ('Track ' + (idx + 1));
+  lyricsBox.appendChild(title);
+  appendCreditLines(lyricsBox, (CONFIG.credits && CONFIG.credits[idx]) || '');
+
+  if (CONFIG.albumCredits) {
+    const album = document.createElement('div');
+    album.className = 'credit-album';
+    const heading = document.createElement('div');
+    heading.className = 'credit-heading';
+    heading.textContent = 'Album credits';
+    album.appendChild(heading);
+    appendCreditLines(album, CONFIG.albumCredits);
+    lyricsBox.appendChild(album);
+  }
+}
 
 function renderLyrics(idx) {
-  const text = CONFIG.lyrics[idx] || 'Lyrics đang được cập nhật...';
-  lyricsBox.textContent = text;
+  lyricsBox.classList.toggle('credits', panel === 'credits');
+  if (panel === 'credits') {
+    renderCredits(idx);
+  } else {
+    lyricsBox.textContent = CONFIG.lyrics[idx] || 'Lyrics đang được cập nhật...';
+  }
   lyricsBox.scrollTop = 0; // sang bài mới thì cuộn về dòng đầu
   lyricsIdx = idx;
   updateLyricsFade();
@@ -1675,16 +1851,18 @@ function layoutFirstScreen() {
   lyricsBox.scrollTop = lyricsScroll;
 }
 
-btnLyrics.addEventListener('click', () => {
-  lyricsMode = !lyricsMode;
-  layoutFirstScreen();
-  if (lyricsMode) {
-    btnLyrics.textContent = 'Tracks';
-    renderLyrics(getCurrentTrackIndex(audio.currentTime));
-  } else {
-    btnLyrics.textContent = 'Lyrics';
-  }
-});
+// Mở Lyrics / Credits / quay về lưới số. Mở cái này thì cái kia tự đóng.
+function setPanel(next) {
+  const wasOpen = lyricsMode;
+  panel = next;
+  lyricsMode = panel !== null;
+  if (lyricsMode !== wasOpen) layoutFirstScreen();
+  btnLyrics.textContent = panel === 'lyrics' ? 'Tracks' : 'Lyrics';
+  btnCredits.textContent = panel === 'credits' ? 'Tracks' : 'Credits';
+  if (lyricsMode) renderLyrics(getCurrentTrackIndex(currentPosition()));
+}
+btnLyrics.addEventListener('click', () => setPanel(panel === 'lyrics' ? null : 'lyrics'));
+btnCredits.addEventListener('click', () => setPanel(panel === 'credits' ? null : 'credits'));
 
 // Xoay màn hình / đổi kích thước cửa sổ thì tính lại. Khi đang mở Lyrics chỉ tính lại
 // lúc bề ngang đổi (xoay máy), vì thanh địa chỉ trên điện thoại ẩn/hiện liên tục khi cuộn.
