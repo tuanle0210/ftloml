@@ -748,7 +748,7 @@
     }
     /* Nút Stream & Download: script chuyển nút ra NGOÀI màn hình đầu, đặt ngay trên
        các nút Streaming (cuộn xuống mới thấy) */
-    .cta-static { margin: 24px auto 0; }
+    .cta-static { margin: 4px auto 0; } /* sát dưới màn hình đầu (đã có 16px lề dưới) */
     .streaming { margin-top: 16px; }
     .streaming, .socials {
       max-width: 480px;
@@ -769,9 +769,7 @@
       padding-top: max(0px, calc((100vh - 400px * var(--desk-zoom, 1)) / 2));
     }
     /* phần Stream nằm ngoài màn hình đầu, cuộn xuống mới thấy (như điện thoại) */
-    .cta-static {
-      margin-top: max(24px, calc((100vh - 400px * var(--desk-zoom, 1)) / 2 + 24px));
-    }
+    .cta-static { margin-top: 56px; } /* khoảng cách từ cover + player xuống nút */
     .first-screen {
       zoom: var(--desk-zoom, 1);
       width: 900px;
@@ -2066,12 +2064,13 @@ const DESKTOP_QUERY = '(orientation: landscape) and (min-width: 900px) and (min-
 const DESK_W = 900, DESK_H = 400;   // kích thước khung gốc (giống điện thoại xoay ngang)
 const DESK_MARGIN_X = 96, DESK_MARGIN_Y = 64; // chừa lề quanh khung sau khi phóng to
 const DESK_MAX_ZOOM = 2.2;
+const DESK_SCALE = 0.5; // to bằng bao nhiêu phần so với mức vừa khít màn hình (1 = khít, 0.5 = một nửa)
 const desktopMQ = window.matchMedia(DESKTOP_QUERY);
 function updateDesktopZoom() {
   let z = 1;
   if (desktopMQ.matches) {
     z = Math.min((window.innerWidth - DESK_MARGIN_X) / DESK_W, (window.innerHeight - DESK_MARGIN_Y) / DESK_H);
-    z = Math.max(1, Math.min(DESK_MAX_ZOOM, z));
+    z = Math.max(1, Math.min(DESK_MAX_ZOOM, z * DESK_SCALE));
   }
   root.style.setProperty('--desk-zoom', z.toFixed(3));
   // Zoom đổi kích thước hiển thị của soundwave -> tạo lại canvas cho nét
