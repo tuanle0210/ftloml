@@ -1854,11 +1854,14 @@ function updateMediaSession(idx) {
   mediaSessionIdx = idx;
   if (!hasMediaSession) return;
   try {
+    // Safari cần biết kích thước ảnh bìa mới chịu hiện ảnh trên màn hình khoá
+    const art = { src: coverUrl, type: 'image/jpeg' };
+    if (coverImg.naturalWidth) art.sizes = coverImg.naturalWidth + 'x' + coverImg.naturalHeight;
     navigator.mediaSession.metadata = new MediaMetadata({
       title: (CONFIG.trackTitles && CONFIG.trackTitles[idx]) || ('Bài ' + (idx + 1)),
       artist: CONFIG.album.artist,
       album: CONFIG.album.title,
-      artwork: [{ src: coverUrl, type: 'image/jpeg' }],
+      artwork: [art],
     });
   } catch (e) {}
   updatePositionState();
@@ -1893,9 +1896,12 @@ if (hasMediaSession) {
   // Cố ý KHÔNG đặt seekbackward/seekforward: trên iPhone, nếu có 2 nút này thì màn hình
   // khoá sẽ hiện nút tua 10 giây thay cho nút bài trước / bài sau.
 
-  audio.addEventListener('play', () => { navigator.mediaSession.playbackState = 'playing'; });
+  // Safari trên iPhone bỏ qua thông tin bài hát được đặt trước khi nhạc bắt đầu phát,
+  // nên mỗi lần bắt đầu phát phải đặt lại (nếu không, màn hình khoá chỉ hiện tên trang web)
+  const refreshMediaSession = () => updateMediaSession(getCurrentTrackIndex(audio.currentTime));
+  audio.addEventListener('play', () => { navigator.mediaSession.playbackState = 'playing'; refreshMediaSession(); });
+  audio.addEventListener('playing', refreshMediaSession);
   audio.addEventListener('pause', () => { navigator.mediaSession.playbackState = 'paused'; updatePositionState(); });
-  audio.addEventListener('playing', updatePositionState);
   audio.addEventListener('seeked', updatePositionState);
   audio.addEventListener('loadedmetadata', updatePositionState);
 }
