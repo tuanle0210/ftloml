@@ -333,6 +333,17 @@
     text-shadow: none;
     transition: transform 0.15s ease;
   }
+  /* Điện thoại hẹp (≤ 400px): nút Lyrics bị đè lên nút Next. Chừa chỗ cho nút Lyrics
+     ở bên phải và thu hẹp khoảng cách giữa 3 nút điều khiển. */
+  @media (max-width: 400px) {
+    .controls {
+      gap: 14px;
+      padding-right: 58px;
+    }
+    .btn-lyrics-toggle {
+      padding: 6px 10px;
+    }
+  }
   .btn-lyrics-toggle:active {
     transform: translateY(-50%) scale(0.92);
   }
