@@ -270,6 +270,18 @@
   #btn-prev img, #btn-next img { width: 44px; height: 44px; }
   #btn-play img { width: 60px; height: 60px; }
 
+  /* Nút Play nhấp nháy nhẹ trong lúc nhạc đang tải */
+  #btn-play.loading img {
+    animation: play-loading 0.9s ease-in-out infinite;
+  }
+  @keyframes play-loading {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #btn-play.loading img { animation: none; opacity: 0.5; }
+  }
+
   .btn-lyrics-toggle {
     position: absolute;
     right: 0;
@@ -360,6 +372,12 @@
     background: var(--accent);
     cursor: pointer;
     border: none;
+  }
+  /* Firefox: tô màu phần đã nghe (Chrome/Safari dùng gradient ở rule bên dưới) */
+  input[type="range"]::-moz-range-progress {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--accent);
   }
   input[type="range"]::-webkit-slider-runnable-track {
     height: 4px;
@@ -1196,7 +1214,7 @@ function drawSoundwave(values) {
   // sóng sẽ bị âm và làm crash script (arcTo IndexSizeError), khiến toàn bộ
   // code phía sau (track grid, streaming buttons) không kịp chạy. Bỏ qua frame
   // này, đợi frame kế tiếp khi canvas đã có kích thước thật.
-  if (w <= 0 || h <= 0) return;
+  if (w <= 0 || h <= 0) return false;
   swCtx.clearRect(0, 0, w, h);
   const gap = 3;
   const barWidth = (w - gap * (values.length - 1)) / values.length;
@@ -1288,14 +1306,36 @@ function soundwaveLoop() {
   for (let i = 0; i < SW_BAR_COUNT; i++) {
     swCurrentValues[i] += ((values[i] || 0) - swCurrentValues[i]) * lerpSpeed;
   }
-  drawSoundwave(swCurrentValues);
+  const drew = drawSoundwave(swCurrentValues) !== false;
+
+  // Đang dừng nhạc và các cột đã về hẳn mức nghỉ -> ngừng vẽ cho đỡ tốn pin.
+  // Vòng lặp sẽ chạy lại khi bấm Play hoặc khi đổi kích thước cửa sổ.
+  let settled = drew && audio.paused;
+  if (settled) {
+    for (let i = 0; i < SW_BAR_COUNT; i++) {
+      if (Math.abs(swCurrentValues[i] - (values[i] || 0)) > 0.5) { settled = false; break; }
+    }
+  }
+  if (settled) {
+    swRunning = false;
+    return;
+  }
   requestAnimationFrame(soundwaveLoop);
 }
+
+let swRunning = false;
+function startSoundwave() {
+  if (swRunning) return;
+  swRunning = true;
+  requestAnimationFrame(soundwaveLoop);
+}
+// Đổi kích thước canvas sẽ xoá hình cũ, nên vẽ lại
+window.addEventListener('resize', startSoundwave);
 
 
 const audio = document.getElementById('audio');
 audio.src = CONFIG.audio.src;
-soundwaveLoop();
+startSoundwave();
 
 const btnPlay = document.getElementById('btn-play');
 const playIcon = document.getElementById('play-icon');
@@ -1327,25 +1367,52 @@ function setCoverSpinning(isPlaying) {
   }
 }
 
+// Gọi play() kèm xử lý lỗi: nếu không phát được (mất mạng, lỗi file...) thì trả nút về Play
+function safePlay() {
+  const p = audio.play();
+  if (p && p.catch) {
+    p.catch(() => {
+      btnPlay.classList.remove('loading');
+      if (audio.paused) {
+        setPlayIcon(false);
+        setCoverSpinning(false);
+      }
+    });
+  }
+}
+
 btnPlay.addEventListener('click', () => {
   ensureAudioCtxRunning();
   if (audio.paused) {
-    audio.play();
+    safePlay();
   } else {
     audio.pause();
   }
 });
 audio.addEventListener('play', () => {
   setPlayIcon(true);
+  startSoundwave();
+  updateTabTitle();
+  if (audio.readyState < 3) btnPlay.classList.add('loading'); // chưa đủ dữ liệu -> nhấp nháy
   if (!analyserReady) startFakeWaveTargetLoop(); // fallback nếu Web Audio API không dùng được
 });
 audio.addEventListener('playing', () => {
+  btnPlay.classList.remove('loading');
   setCoverSpinning(true);   // chỉ quay khi đã thật sự có tiếng
 });
 audio.addEventListener('waiting', () => {
+  if (audio.paused) return;
+  btnPlay.classList.add('loading');
   setCoverSpinning(false);  // đang tải nhạc thì tạm ngừng quay
 });
+audio.addEventListener('error', () => {
+  btnPlay.classList.remove('loading');
+  setPlayIcon(false);
+  setCoverSpinning(false);
+});
 audio.addEventListener('pause', () => {
+  btnPlay.classList.remove('loading');
+  updateTabTitle();
   setPlayIcon(false);
   setCoverSpinning(false);
   if (!analyserReady) stopFakeWaveTargetLoop();
@@ -1392,17 +1459,31 @@ function updateActiveTrack() {
   const buttons = trackGrid.querySelectorAll('button');
   buttons.forEach((b, i) => b.classList.toggle('active', i === idx));
   setThemeTrack(idx);
-  if (lyricsMode) renderLyrics(idx);
+  if (lyricsMode && idx !== lyricsIdx) renderLyrics(idx); // chỉ ghi lại khi đổi bài
+  updateTabTitle(idx);
+}
+
+// ---------- Tên bài trên tab trình duyệt ----------
+// Đang phát: "▶ Mèo Đi Heels — Tuan Le". Đang dừng: tên album như bình thường.
+const BASE_TITLE = CONFIG.album.title + ' — ' + CONFIG.album.artist;
+function updateTabTitle(idx) {
+  if (idx === undefined) idx = getCurrentTrackIndex(audio.currentTime);
+  const name = CONFIG.trackTitles && CONFIG.trackTitles[idx];
+  const next = (!audio.paused && name) ? '▶ ' + name + ' — ' + CONFIG.album.artist : BASE_TITLE;
+  if (document.title !== next) document.title = next;
 }
 
 // ---------- Lyrics: chuyển đổi lưới số <-> khung lyrics ----------
 const btnLyrics = document.getElementById('btn-lyrics');
 const lyricsBox = document.getElementById('lyrics-box');
 let lyricsMode = false;
+let lyricsIdx = -1; // bài đang hiện lời trong khung lyrics
 
 function renderLyrics(idx) {
   const text = CONFIG.lyrics[idx] || 'Lyrics đang được cập nhật...';
   lyricsBox.textContent = text;
+  lyricsBox.scrollTop = 0; // sang bài mới thì cuộn về dòng đầu
+  lyricsIdx = idx;
 }
 
 btnLyrics.addEventListener('click', () => {
@@ -1442,11 +1523,17 @@ btnPrev.addEventListener('click', () => {
 CONFIG.audio.trackStarts.forEach((_, i) => {
   const btn = document.createElement('button');
   btn.textContent = String(i + 1);
+  // Rê chuột vào nút số sẽ hiện "3. Mèo Đi Heels"; trình đọc màn hình cũng đọc được tên bài
+  const trackName = CONFIG.trackTitles && CONFIG.trackTitles[i];
+  if (trackName) {
+    btn.title = (i + 1) + '. ' + trackName;
+    btn.setAttribute('aria-label', 'Bài ' + (i + 1) + ': ' + trackName);
+  }
   btn.addEventListener('click', () => {
     ensureAudioCtxRunning();
     cancelResume();
     audio.currentTime = trackStartSeconds[i];
-    audio.play();
+    safePlay();
   });
   trackGrid.appendChild(btn);
 });
