@@ -727,15 +727,18 @@
       margin-top: 0;
       padding: 14px 16px 16px;
     }
-    .soundwave { height: 28px; margin-top: 0; flex: none; }
+    /* Soundwave giãn ra lấp chỗ trống; nút số giữ chiều cao cố định (nhỏ gọn) */
+    .soundwave { height: auto; min-height: 28px; margin-top: 0; flex: 1 1 0; }
+    /* Đang mở Lyrics / Credits: soundwave về cỡ nhỏ để nhường chỗ cho chữ */
+    .player.panel-open .soundwave { flex: none; height: 28px; }
     .controls { margin-top: 10px; flex: none; }
     .progress-row { margin-top: 6px; flex: none; }
-    /* 10 nút số xếp ngang: 2 hàng, mỗi hàng 5 bài (1–5 / 6–10) — nút cao, dễ bấm */
+    /* 10 nút số xếp ngang: 2 hàng, mỗi hàng 5 bài (1–5 / 6–10) */
     .track-grid {
-      flex: 1;
+      flex: none;
       min-height: 0;
       grid-template-columns: repeat(5, 1fr);
-      grid-template-rows: repeat(2, minmax(0, 1fr));
+      grid-template-rows: repeat(2, 40px);
       grid-auto-flow: row;
       gap: 8px 10px;
       margin-top: 10px;
@@ -784,7 +787,8 @@
       padding-bottom: 0;
     }
     .player { max-width: none; padding: 18px 22px 20px; }
-    .soundwave { height: 48px; }  /* soundwave cao hơn bản điện thoại (28px) */
+    .soundwave, .player.panel-open .soundwave { flex: none; height: 48px; min-height: 0; } /* desktop: cao cố định */
+    .track-grid { flex: 1; grid-template-rows: repeat(2, minmax(0, 1fr)); } /* desktop: nút số lấp đầy */
     .track-grid {
       gap: 10px;
       margin-top: 14px;
@@ -797,7 +801,8 @@
       padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
     }
     .player { padding: 10px 12px 12px; }
-    .soundwave { height: 18px; margin-top: 0; }
+    .soundwave { min-height: 18px; margin-top: 0; }
+    .track-grid { grid-template-rows: repeat(2, 34px); }
     .controls { margin-top: 6px; }
     .track-grid { gap: 5px 8px; margin-top: 6px; }
     .track-grid button { font-size: 0.85rem; }
@@ -2115,6 +2120,7 @@ function layoutFirstScreen() {
     // Player cao đúng bằng ảnh bìa (đo sau khi bố cục ngang đã áp dụng)
     playerEl.style.height = '';
     playerEl.style.height = coverDisc.offsetHeight + 'px';
+    playerEl.classList.toggle('panel-open', lyricsMode);
     coverWrap.style.flex = '';
     firstScreen.style.paddingTop = '';
     firstScreen.style.height = '';
@@ -2128,6 +2134,7 @@ function layoutFirstScreen() {
 
   // Về bố cục gốc (lưới số) để đo
   playerEl.style.height = '';
+  playerEl.classList.remove('panel-open');
   coverWrap.style.flex = '';
   firstScreen.style.paddingTop = '';
   firstScreen.classList.remove('expanded');
