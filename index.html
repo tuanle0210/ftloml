@@ -87,7 +87,9 @@
   .bg-layer {
     background-color: #1a1210;
     position: fixed;
-    inset: 0;
+    /* Tràn ra ngoài màn hình 150px trên và dưới: phần nằm dưới thanh địa chỉ / thanh công cụ
+       trong suốt của Safari vẫn là ảnh nền, không bị hở thành 2 dải tối */
+    inset: -150px 0;
     background-image: url('assets/Background.webp');
     background-size: cover;
     background-position: center;
@@ -96,7 +98,7 @@
   }
   .bg-overlay {
     position: fixed;
-    inset: 0;
+    inset: -150px 0;
     background: var(--bg-overlay);
     z-index: -1;
   }
@@ -1416,6 +1418,21 @@ function smoothstep(e0, e1, x) {
 }
 
 // pos: vị trí bài dạng số thực (0 = bài 1, 9 = bài 10), cho phép nằm giữa 2 bài khi đang fade.
+// Màu vùng thanh trạng thái / thanh Safari: lấy màu mép ảnh nền, phủ cùng lớp phủ với
+// ảnh nền của bài đang phát, để 2 vùng đó liền màu với trang thay vì thành dải tối
+const BAR_BASE = [176, 54, 64]; // màu trung bình ở mép trên/dưới của Background.webp
+const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+let lastBarColor = '';
+function updateBarColor(t) {
+  const dark = 0.55 * (1 - t), white = 0.08 * t;
+  const c = BAR_BASE.map(v => Math.round((v * (1 - dark)) * (1 - white) + 255 * white));
+  const color = 'rgb(' + c.join(',') + ')';
+  if (color === lastBarColor) return;
+  lastBarColor = color;
+  document.documentElement.style.backgroundColor = color;
+  if (themeColorMeta) themeColorMeta.setAttribute('content', color);
+}
+
 function applyThemeAt(pos) {
   const last = THEME_STEPS.length - 1;
   pos = Math.min(last, Math.max(0, pos));
@@ -1444,6 +1461,7 @@ function applyThemeAt(pos) {
   s.setProperty('--border-soft', rgba(text, 0.10 - 0.02 * k));
   s.setProperty('--track-btn-bg', rgba(text, 0.08 - 0.02 * k));
   s.setProperty('--bg-overlay', overlay);
+  updateBarColor(t);
   s.setProperty('--link-text', rgb(linkText));
   s.setProperty('--accent-ink', rgb(accentInk));
   root.style.colorScheme = k < 0.5 ? 'dark' : 'light';
