@@ -650,10 +650,12 @@ const CONFIG = {
 
   // ---- File nhạc + mốc thời gian từng bài ----
   audio: {
-    // File mp3 gộp 10 bài nằm ngay trong assets/ của repo (same-origin với trang này),
-    // nên không còn dính CORS/redirect gì nữa — vừa phát nhạc ổn định trên mọi thiết bị,
-    // vừa cho phép soundwave đọc dữ liệu tần số THẬT (xem phần Web Audio API bên dưới).
+    // File mp3 gộp 10 bài nằm ngay trong assets/ của repo.
     src: "assets/ftloml.mp3",
+
+    // Dữ liệu soundwave tính sẵn từ file mp3 ở trên, tạo bằng soundwave-tool.html.
+    // Nếu đổi file mp3 thì phải tạo lại file này.
+    soundwave: "assets/soundwave.bin",
 
     // Mốc thời gian BẮT ĐẦU của từng bài, định dạng "phút:giây.mili".
     // Đã cập nhật theo timestamp thật do người dùng cung cấp.
@@ -1232,15 +1234,16 @@ const swCtx = soundwaveCanvas.getContext('2d');
 const SW_BAR_COUNT = 32;
 const swIdleValues = new Array(SW_BAR_COUNT).fill(6);
 
-// GHI CHÚ: file mp3 giờ nằm CÙNG DOMAIN với trang (assets/ trong repo), nên không còn
-// bị chặn CORS như hồi còn host qua GitHub Release nữa. Vì vậy soundwave bên dưới đọc
-// dữ liệu tần số THẬT từ nhạc đang phát, thông qua Web Audio API (AudioContext +
-// AnalyserNode), thay vì kiểu giả lập ngẫu nhiên như trước.
+// GHI CHÚ: soundwave KHÔNG còn phân tích âm thanh trong lúc phát (Web Audio API) nữa.
+// Trước đây âm thanh phải đi qua AudioContext để phân tích, và Safari trên iPhone đóng
+// băng AudioContext khi thoát app / khoá màn hình -> nhạc bị mất tiếng.
+// Giờ độ cao các cột được tính sẵn từ file mp3 (assets/soundwave.bin, tạo bằng
+// soundwave-tool.html), trang chỉ đọc theo đúng giây đang phát. Nhạc phát thẳng qua
+// thẻ <audio> nên thoát app / khoá màn hình vẫn nghe bình thường.
 //
-// Cơ chế giả lập cũ (pickNewTargetValues/startFakeWaveTargetLoop/stopFakeWaveTargetLoop)
-// vẫn được GIỮ LẠI làm phương án dự phòng — nếu trình duyệt nào đó không hỗ trợ Web Audio
-// API (rất hiếm ở thời điểm hiện tại), soundwave sẽ tự động rơi về kiểu giả lập này thay
-// vì đứng im hoàn toàn.
+// Cơ chế giả lập (pickNewTargetValues/startFakeWaveTargetLoop/stopFakeWaveTargetLoop)
+// được GIỮ LẠI làm phương án dự phòng, dùng trong vài giây đầu khi file soundwave chưa
+// tải xong, hoặc nếu file soundwave bị thiếu.
 let swCurrentValues = swIdleValues.slice();
 let swTargetValues = swIdleValues.slice();
 let swTargetTimer = null;
@@ -1331,76 +1334,65 @@ function drawSoundwave(values) {
   }
 }
 
-// ---------- Web Audio API: đọc dữ liệu tần số thật từ nhạc đang phát ----------
-// Phải khởi tạo AudioContext bên trong một hành động của người dùng (click/tap),
-// nên setupAudioAnalyser()/ensureAudioCtxRunning() được gọi trong các nút Play và
-// nút số bài hát bên dưới, không gọi tự động lúc trang vừa load.
-let audioCtx = null;
-let analyser = null;
-let freqData = null;
-let analyserReady = false;
+// ---------- Dữ liệu soundwave tính sẵn ----------
+// Định dạng file: xem ghi chú trong soundwave-tool.html
+let swData = null;    // Uint8Array: độ cao từng cột, 4 bit/cột
+let swFps = 10, swBars = SW_BAR_COUNT, swFrames = 0;
+const swFrameValues = new Array(SW_BAR_COUNT).fill(0);
 
-function setupAudioAnalyser() {
-  if (audioCtx) return; // đã khởi tạo rồi thì thôi, tránh tạo lại nhiều lần
-  try {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const source = audioCtx.createMediaElementSource(audio);
-
-    analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 64; // fftSize/2 = 32 dải tần, khớp đúng SW_BAR_COUNT — CHỈ dùng để vẽ soundwave
-    analyser.smoothingTimeConstant = 0.8; // làm mượt dữ liệu ngay trong AnalyserNode
-    freqData = new Uint8Array(analyser.frequencyBinCount);
-
-    source.connect(analyser);
-    analyser.connect(audioCtx.destination); // đường DUY NHẤT phát ra loa, bắt buộc phải có
-    analyserReady = true;
-  } catch (e) {
-    console.warn('Trinh duyet khong ho tro Web Audio API, dung soundwave gia lap thay the.', e);
-    analyserReady = false;
-  }
+function loadSoundwaveData() {
+  if (!CONFIG.audio.soundwave || !window.fetch) return;
+  fetch(CONFIG.audio.soundwave)
+    .then(r => (r.ok ? r.arrayBuffer() : null))
+    .then(buf => {
+      if (!buf || buf.byteLength < 12) return;
+      const bytes = new Uint8Array(buf);
+      if (String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]) !== 'SWV1') return;
+      swFps = bytes[4];
+      swBars = bytes[5];
+      swFrames = new DataView(buf).getUint32(8, true);
+      swData = bytes.subarray(12);
+      stopFakeWaveTargetLoop(); // có dữ liệu thật rồi thì thôi giả lập
+    })
+    .catch(() => {}); // thiếu file -> dùng soundwave giả lập
 }
+// Tải sau khi trang đã hiện xong, để không tranh băng thông với ảnh bìa / ảnh nền
+if (document.readyState === 'complete') loadSoundwaveData();
+else window.addEventListener('load', loadSoundwaveData);
 
-function ensureAudioCtxRunning() {
-  setupAudioAnalyser();
-  // Một số trình duyệt (đặc biệt Safari/iOS) tạo AudioContext ở trạng thái "suspended"
-  // cho đến khi có tương tác người dùng — cần resume() thì mới thực sự chạy.
-  if (audioCtx && audioCtx.state === 'suspended') {
-    audioCtx.resume();
-  }
+function swGet(frame, bar) {
+  if (frame < 0 || frame >= swFrames) return 0;
+  const idx = frame * swBars + bar;
+  const byte = swData[idx >> 1];
+  return (idx & 1) ? (byte & 15) : (byte >> 4);
 }
-
-// Safari (đặc biệt trên iOS) có xu hướng tự "đóng băng" (suspended) AudioContext khi
-// người dùng khoá màn hình hoặc chuyển sang app khác để tiết kiệm pin — lúc này thẻ
-// <audio> vẫn tiếp tục chạy thời gian (currentTime vẫn tăng, trạng thái vẫn "playing")
-// nhưng KHÔNG CÓ TIẾNG ra loa, vì đường phát âm thanh thật đang đi qua chính
-// AudioContext đã bị đóng băng đó. Cách khắc phục: lắng nghe các sự kiện báo hiệu
-// trang quay lại hoạt động (mở khoá màn hình, quay lại app, chuyển tab) và tự động
-// resume() lại AudioContext ngay lập tức nếu nó đang ở trạng thái suspended trong
-// khi nhạc vẫn đang được yêu cầu phát (audio.paused === false).
-function resumeAudioCtxIfNeeded() {
-  if (audioCtx && audioCtx.state === 'suspended' && !audio.paused) {
-    audioCtx.resume();
+// Độ cao các cột (0..255) tại thời điểm t giây, nội suy giữa 2 mốc cho mượt
+function soundwaveAt(t) {
+  const f = t * swFps;
+  const i = Math.floor(f);
+  const frac = f - i;
+  for (let b = 0; b < SW_BAR_COUNT; b++) {
+    const bar = Math.min(b, swBars - 1);
+    const v0 = swGet(i, bar), v1 = swGet(i + 1, bar);
+    swFrameValues[b] = (v0 + (v1 - v0) * frac) * 17;
   }
+  return swFrameValues;
 }
-document.addEventListener('visibilitychange', resumeAudioCtxIfNeeded);
-window.addEventListener('focus', resumeAudioCtxIfNeeded);
-window.addEventListener('pageshow', resumeAudioCtxIfNeeded);
 
 function soundwaveLoop() {
   let values;
   let lerpSpeed;
 
-  if (analyserReady && !audio.paused) {
-    // Đang phát nhạc và Web Audio API hoạt động bình thường -> dùng dữ liệu tần số thật
-    analyser.getByteFrequencyData(freqData);
-    values = freqData;
-    lerpSpeed = 0.35; // dữ liệu thật đã có nhịp riêng, chỉ cần lerp nhẹ cho mượt khung hình
-  } else if (analyserReady) {
-    // Web Audio API hoạt động nhưng đang tạm dừng -> để các cột về mức nghỉ
+  if (audio.paused) {
+    // Đang tạm dừng -> các cột về mức nghỉ
     values = swIdleValues;
     lerpSpeed = 0.12;
+  } else if (swData) {
+    // Đang phát và đã có dữ liệu tính sẵn -> soundwave thật, khớp theo giây đang phát
+    values = soundwaveAt(audio.currentTime);
+    lerpSpeed = 0.35; // dữ liệu thật đã có nhịp riêng, chỉ cần lerp nhẹ cho mượt khung hình
   } else {
-    // Web Audio API không khả dụng -> dùng lại cơ chế giả lập cũ
+    // Đang phát nhưng dữ liệu chưa tải xong / bị thiếu -> giả lập
     values = swTargetValues;
     lerpSpeed = 0.09;
   }
@@ -1488,7 +1480,6 @@ function safePlay() {
 }
 
 btnPlay.addEventListener('click', () => {
-  ensureAudioCtxRunning();
   if (audio.paused) {
     safePlay();
   } else {
@@ -1500,7 +1491,7 @@ audio.addEventListener('play', () => {
   startSoundwave();
   updateTabTitle();
   if (audio.readyState < 3) btnPlay.classList.add('loading'); // chưa đủ dữ liệu -> nhấp nháy
-  if (!analyserReady) startFakeWaveTargetLoop(); // fallback nếu Web Audio API không dùng được
+  if (!swData) startFakeWaveTargetLoop(); // dữ liệu soundwave chưa có -> giả lập tạm
 });
 audio.addEventListener('playing', () => {
   btnPlay.classList.remove('loading');
@@ -1523,7 +1514,7 @@ audio.addEventListener('pause', () => {
   updateTabTitle();
   setPlayIcon(false);
   setCoverSpinning(false);
-  if (!analyserReady) stopFakeWaveTargetLoop();
+  stopFakeWaveTargetLoop();
 });
 
 audio.addEventListener('loadedmetadata', () => {
@@ -1537,7 +1528,6 @@ audio.addEventListener('timeupdate', () => {
   progress.value = pct;
   progress.style.setProperty('--progress-pct', (pct / 10) + '%');
   updateActiveTrack();
-  resumeAudioCtxIfNeeded(); // lớp bảo hiểm thêm, phòng khi các sự kiện visibility/focus không bắt kịp
 });
 
 // Nhãn tên bài hiện phía trên nút kéo trong lúc kéo thanh tiến trình
@@ -1620,6 +1610,7 @@ function updateActiveTrack() {
   setThemeTrack(idx);
   if (lyricsMode && idx !== lyricsIdx) renderLyrics(idx); // chỉ ghi lại khi đổi bài
   updateTabTitle(idx);
+  if (idx !== mediaSessionIdx) updateMediaSession(idx); // chỉ cập nhật khi đổi bài
 }
 
 // ---------- Tên bài trên tab trình duyệt ----------
@@ -1742,7 +1733,6 @@ CONFIG.audio.trackStarts.forEach((_, i) => {
     btn.setAttribute('aria-label', 'Bài ' + (i + 1) + ': ' + trackName);
   }
   btn.addEventListener('click', () => {
-    ensureAudioCtxRunning();
     cancelResume();
     audio.currentTime = trackStartSeconds[i];
     safePlay();
@@ -1842,6 +1832,74 @@ document.addEventListener('keydown', (e) => {
     btnPrev.click();
   }
 });
+
+// ---------- Màn hình khoá / thanh thông báo điện thoại (Media Session API) ----------
+// Hiện tên bài, tên nghệ sĩ, ảnh bìa trên màn hình khoá, và cho các nút bài trước /
+// bài sau / tua ở đó hoạt động. Thanh tiến trình trên màn hình khoá chạy theo TỪNG BÀI
+// (vd. 1:20 / 3:28), không phải theo cả album 36 phút.
+// (Trước đây không làm được vì âm thanh đi qua AudioContext; giờ soundwave đã tính sẵn
+// nên không còn xung đột.)
+// Dùng "var" vì updateActiveTrack() ở phía trên có thể gọi tới trước khi chạy tới đây
+var mediaSessionIdx = -1;
+var hasMediaSession = 'mediaSession' in navigator && typeof MediaMetadata !== 'undefined';
+var coverUrl = new URL('assets/cover.jpg', location.href).href;
+
+function trackBounds(idx) {
+  const start = trackStartSeconds[idx];
+  const end = idx + 1 < trackStartSeconds.length ? trackStartSeconds[idx + 1] : (audio.duration || start);
+  return { start, end };
+}
+
+function updateMediaSession(idx) {
+  mediaSessionIdx = idx;
+  if (!hasMediaSession) return;
+  try {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: (CONFIG.trackTitles && CONFIG.trackTitles[idx]) || ('Bài ' + (idx + 1)),
+      artist: CONFIG.album.artist,
+      album: CONFIG.album.title,
+      artwork: [{ src: coverUrl, type: 'image/jpeg' }],
+    });
+  } catch (e) {}
+  updatePositionState();
+}
+
+function updatePositionState() {
+  if (!hasMediaSession || !navigator.mediaSession.setPositionState || !audio.duration) return;
+  const idx = getCurrentTrackIndex(audio.currentTime);
+  const { start, end } = trackBounds(idx);
+  const duration = Math.max(0.1, end - start);
+  const position = Math.min(duration, Math.max(0, audio.currentTime - start));
+  try {
+    navigator.mediaSession.setPositionState({ duration, position, playbackRate: audio.playbackRate || 1 });
+  } catch (e) {}
+}
+
+if (hasMediaSession) {
+  const setHandler = (action, fn) => {
+    try { navigator.mediaSession.setActionHandler(action, fn); } catch (e) {} // máy không hỗ trợ nút đó thì bỏ qua
+  };
+  setHandler('play', () => safePlay());
+  setHandler('pause', () => audio.pause());
+  setHandler('previoustrack', () => btnPrev.click());
+  setHandler('nexttrack', () => btnNext.click());
+  // Kéo thanh tiến trình trên màn hình khoá: vị trí tính trong bài hiện tại
+  setHandler('seekto', (details) => {
+    if (details.seekTime == null) return;
+    cancelResume();
+    const { start, end } = trackBounds(getCurrentTrackIndex(audio.currentTime));
+    audio.currentTime = Math.min(end - 0.5, start + details.seekTime);
+  });
+  // Cố ý KHÔNG đặt seekbackward/seekforward: trên iPhone, nếu có 2 nút này thì màn hình
+  // khoá sẽ hiện nút tua 10 giây thay cho nút bài trước / bài sau.
+
+  audio.addEventListener('play', () => { navigator.mediaSession.playbackState = 'playing'; });
+  audio.addEventListener('pause', () => { navigator.mediaSession.playbackState = 'paused'; updatePositionState(); });
+  audio.addEventListener('playing', updatePositionState);
+  audio.addEventListener('seeked', updatePositionState);
+  audio.addEventListener('loadedmetadata', updatePositionState);
+}
+updateMediaSession(getCurrentTrackIndex(currentPosition()));
 
 // ---------- Nút "Nghe & Tải về" scroll mượt ----------
 document.getElementById('scroll-cta').addEventListener('click', () => {
