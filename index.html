@@ -124,15 +124,11 @@
   .first-screen {
     display: flex;
     flex-direction: column;
-    justify-content: center; /* màn hình dư chỗ thì chia đều trên/dưới, không để hở giữa ảnh và tên */
     padding-bottom: 12px;
   }
   /* Đang mở Lyrics: cho khung dài ra tự nhiên */
   .first-screen.expanded {
-    height: auto !important;
-    min-height: calc(100vh - 12px);
-    min-height: calc(100svh - 12px);
-    justify-content: flex-start; /* giữ ảnh bìa đứng yên, player chỉ dài/ngắn ở phía dưới */
+    max-height: none !important;
   }
   .cover-wrap {
     display: flex;
@@ -141,8 +137,10 @@
   }
   @supports (width: 1cqh) {
     .first-screen {
-      height: calc(100vh - 12px);   /* 12px = khoảng đệm trên cùng của .page */
-      height: calc(100svh - 12px);
+      /* Không cao quá 1 màn hình (thiếu chỗ thì ảnh bìa tự co), nhưng cũng không
+         kéo dài thêm khi dư chỗ -> không có khoảng hở thừa */
+      max-height: calc(100vh - 12px);   /* 12px = khoảng đệm trên cùng của .page */
+      max-height: calc(100svh - 12px);
     }
     .cover-wrap {
       /* Mặc định cao bằng bề ngang (ảnh vuông to nhất), thiếu chỗ thì tự co lại */
