@@ -659,8 +659,12 @@
       align-items: start;
       max-height: none !important;
       height: auto !important;
-      min-height: 0;
-      padding-top: calc(env(safe-area-inset-top, 0px) + 12px);
+      /* Chiếm 1 màn hình, cả cụm (ảnh bìa + player + nút Stream & Download) nằm giữa theo chiều dọc */
+      min-height: 100vh;
+      min-height: 100svh;
+      align-content: center;
+      padding-top: calc(env(safe-area-inset-top, 0px) + 24px); /* khoảng trống phía trên khi xoay ngang */
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
     }
     .cover-wrap {
       grid-column: 1;
@@ -671,9 +675,10 @@
       container-type: normal !important;
     }
     .cover-disc {
-      /* chừa chỗ cho tên album bên dưới, và không rộng quá 38% bề ngang */
-      width: min(calc(100vh - 110px), 38vw) !important;
-      width: min(calc(100svh - 110px), 38vw) !important;
+      /* chừa chỗ cho khoảng trống trên, tên album và nút Stream & Download bên dưới,
+         và không rộng quá 38% bề ngang */
+      width: min(calc(100vh - 175px), 38vw) !important;
+      width: min(calc(100svh - 175px), 38vw) !important;
       max-width: none !important;
     }
     .album-info {
@@ -689,7 +694,12 @@
       grid-column: 2;
       grid-row: 1 / span 2;
       margin-top: 0;
+      padding: 12px 14px 14px; /* player gọn hơn một chút cho vừa chiều cao màn hình ngang */
     }
+    .soundwave { height: 28px; margin-top: 8px; }
+    .progress-row { margin-top: 6px; }
+    .track-grid { margin-top: 10px; }
+    .track-grid button { height: 38px; }
     .cta-static {
       grid-column: 1 / -1;
       grid-row: 3;
