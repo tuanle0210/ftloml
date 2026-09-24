@@ -51,6 +51,9 @@
     --bg-overlay: rgba(0,0,0,0.55);  /* lớp phủ lên ảnh nền */
     --link-text: #ffffff;            /* chữ nút Streaming/Download */
     --accent-ink: #df4a5e;           /* chữ màu hồng trên nền card (nút Lyrics) */
+    --lyrics-text: #f5efec;          /* chữ trong khung Lyrics/Credits (bài sáng: đen dịu hơn --text) */
+    --lyrics-text-soft: rgba(245,239,236,0.65);
+    --bg-blur: 6px;                  /* độ mờ ảnh nền. 0px = nét như cũ, tăng lên để mờ hơn */
   }
 
   * { box-sizing: border-box; }
@@ -95,6 +98,11 @@
     background-position: center;
     background-repeat: no-repeat;
     z-index: -2;
+    /* Làm mờ nhẹ ảnh nền. Mép ảnh bị blur sẽ nhạt/viền tối, nên cho tràn thêm 2 bên
+       (mép trên/dưới đã tràn 150px ở trên) để phần viền đó nằm ngoài màn hình. */
+    left: calc(var(--bg-blur) * -3);
+    right: calc(var(--bg-blur) * -3);
+    filter: blur(var(--bg-blur));
   }
   .bg-overlay {
     position: fixed;
@@ -406,7 +414,7 @@
     white-space: pre-line;
     font-size: 0.9rem;
     line-height: 1.7;
-    color: var(--text);
+    color: var(--lyrics-text);
     padding: 2px 4px;
     scrollbar-width: thin;
     scrollbar-color: var(--accent) transparent;
@@ -423,7 +431,7 @@
   .credit-role {
     display: block;
     font-size: 0.72rem;
-    color: var(--text-soft);
+    color: var(--lyrics-text-soft);
   }
   .credit-name {
     display: block;
@@ -436,12 +444,12 @@
   }
   .credit-heading {
     font-size: 0.72rem;
-    color: var(--text-soft);
+    color: var(--lyrics-text-soft);
     margin-bottom: 10px;
   }
   .credit-plain {
     font-size: 0.8rem;
-    color: var(--text-soft);
+    color: var(--lyrics-text-soft);
   }
   .lyrics-box.has-more {
     mask-image: linear-gradient(to bottom, black calc(100% - 48px), transparent);
@@ -787,7 +795,7 @@
 
     <div class="progress-row">
       <span class="time-label" id="current-time">0:00</span>
-      <input type="range" id="progress" min="0" max="1000" value="0" step="1">
+      <input type="range" id="progress" min="0" max="1000" value="0" step="1" aria-label="Tiến trình album" aria-valuetext="0:00">
       <span class="time-label" id="duration-time">0:00</span>
     </div>
 
@@ -796,7 +804,7 @@
       <button id="btn-prev" aria-label="Bài trước">
         <img src="assets/icons/previous.svg" alt="">
       </button>
-      <button id="btn-play" aria-label="Phát / Tạm dừng">
+      <button id="btn-play" aria-label="Phát">
         <img id="play-icon" src="assets/icons/play.svg" alt="">
       </button>
       <button id="btn-next" aria-label="Bài tiếp theo">
@@ -1409,6 +1417,7 @@ const THEME_ACCENT_SOFT = [255, 214, 220]; // hồng nhạt, để chữ hồng 
 // Cố ý bước dài hơn ở bài 5 → 6: vùng xám ở giữa làm cả chữ trắng lẫn chữ đen đều khó đọc,
 // nên bài 5 là "tối nhạt" và bài 6 là "sáng đục", chữ đổi màu đúng lúc chuyển qua đó.
 const THEME_STEPS = [0, 0.07, 0.14, 0.21, 0.28, 0.62, 0.72, 0.81, 0.90, 1];
+const LYRICS_SOFTEN = 0.25; // chữ lyrics/credits dịu hơn chữ thường bao nhiêu (0 = như cũ)
 const THEME_FADE_MS = 2500; // thời gian fade giữa 2 bài (mili giây)
 
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -1449,6 +1458,9 @@ function applyThemeAt(pos) {
 
   const card = mix(THEME_DARK.card, THEME_LIGHT.card, u);
   const text = mix(THEME_DARK.text, THEME_LIGHT.text, k);
+  // Chữ lyrics/credits: ở kiểu light mode pha thêm 25% màu nền card cho đen dịu hơn,
+  // đọc lời dài đỡ gắt mắt. Kiểu dark mode giữ nguyên như --text.
+  const lyricsText = mix(text, card, LYRICS_SOFTEN * k);
 
   // Chữ hồng / chữ nút link: ở vùng tối sáng dần lên cho dễ đọc, ở vùng sáng đậm dần về hồng gốc
   const lightInk = mix(THEME_LIGHT.text, THEME_ACCENT, Math.max(0, (u - 0.5) / 0.5));
@@ -1464,6 +1476,8 @@ function applyThemeAt(pos) {
   s.setProperty('--card-bg', rgb(card));
   s.setProperty('--text', rgb(text));
   s.setProperty('--text-soft', rgba(text, 0.65));
+  s.setProperty('--lyrics-text', rgb(lyricsText));
+  s.setProperty('--lyrics-text-soft', rgba(lyricsText, 0.7));
   s.setProperty('--border-soft', rgba(text, 0.10 - 0.02 * k));
   s.setProperty('--track-btn-bg', rgba(text, 0.08 - 0.02 * k));
   s.setProperty('--bg-overlay', overlay);
@@ -1743,6 +1757,18 @@ let isSeeking = false;
 
 function setPlayIcon(isPlaying) {
   playIcon.src = isPlaying ? 'assets/icons/pause.svg' : 'assets/icons/play.svg';
+  // Trình đọc màn hình đọc đúng việc nút sẽ làm khi bấm
+  btnPlay.setAttribute('aria-label', isPlaying ? 'Tạm dừng' : 'Phát');
+}
+
+// Chữ mà trình đọc màn hình đọc cho thanh tiến trình, thay cho con số 0–1000.
+// Vd: "Bài 3: Mèo Đi Heels, 5:12 / 36:40"
+function updateProgressAria(time) {
+  const idx = getCurrentTrackIndex(time);
+  const name = (CONFIG.trackTitles && CONFIG.trackTitles[idx]) || '';
+  const text = 'Bài ' + (idx + 1) + (name ? ': ' + name : '') + ', ' +
+    formatSeconds(time) + ' / ' + formatSeconds(audio.duration);
+  if (progress.getAttribute('aria-valuetext') !== text) progress.setAttribute('aria-valuetext', text);
 }
 new Image().src = 'assets/icons/pause.svg'; // tải sẵn icon Pause
 
@@ -1820,6 +1846,7 @@ audio.addEventListener('loadedmetadata', () => {
 audio.addEventListener('timeupdate', () => {
   if (isSeeking) return;
   currentTimeEl.textContent = formatSeconds(audio.currentTime);
+  updateProgressAria(audio.currentTime);
   const pct = audio.duration ? (audio.currentTime / audio.duration) * 1000 : 0;
   progress.value = pct;
   progress.style.setProperty('--progress-pct', (pct / 10) + '%');
@@ -1865,6 +1892,7 @@ progress.addEventListener('input', () => {
   const pct = progress.value / 1000;
   const seekTime = pct * (audio.duration || 0);
   currentTimeEl.textContent = formatSeconds(seekTime);
+  updateProgressAria(seekTime);
   progress.style.setProperty('--progress-pct', (progress.value / 10) + '%');
   showSeekLabel(seekTime);
 });
@@ -2183,8 +2211,11 @@ document.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.repeat) return; // giữ phím không bị bật/tắt hay chuyển bài liên tục
   const t = e.target;
-  // Đang gõ chữ hoặc đang kéo thanh tiến trình thì để trình duyệt xử lý bình thường
-  if (t.closest && t.closest('input, textarea, select, [contenteditable]')) return;
+  // Đang gõ chữ thì để trình duyệt xử lý bình thường. Thanh tiến trình (range) KHÔNG
+  // nằm trong danh sách này: trước đây sau khi dùng chuột kéo thanh, focus kẹt lại ở đó
+  // nên Space không dừng nhạc được và mũi tên chỉ tua 2 giây thay vì chuyển bài.
+  // (Home/End/PageUp/PageDown trên thanh vẫn hoạt động như bình thường.)
+  if (t.closest && t.closest('input:not([type=range]), textarea, select, [contenteditable]')) return;
 
   if (e.code === 'Space') {
     // Space luôn là phát/tạm dừng. Trước đây nếu vừa bấm chuột vào một nút (vd. Prev),
