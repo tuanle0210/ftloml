@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Màu thanh địa chỉ trình duyệt trên điện thoại, đặt gần với màu nền tối của trang -->
+<meta name="theme-color" content="#1a1210">
 <title>For the Loves of My Lives — Tuan Le</title>
 <meta name="description" content="For the Loves of My Lives — Tuan Le">
 
@@ -314,6 +316,11 @@
     scrollbar-width: thin;
     scrollbar-color: var(--accent) transparent;
   }
+  /* Còn chữ bên dưới -> mờ dần ở mép dưới để gợi ý cuộn xuống */
+  .lyrics-box.has-more {
+    mask-image: linear-gradient(to bottom, black calc(100% - 48px), transparent);
+    -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 48px), transparent);
+  }
   .lyrics-box::-webkit-scrollbar {
     width: 6px;
   }
@@ -333,6 +340,7 @@
   }
 
   .progress-row {
+    position: relative; /* để đặt nhãn tên bài nổi phía trên khi kéo */
     display: flex;
     align-items: center;
     gap: 10px;
@@ -346,18 +354,28 @@
     font-variant-numeric: tabular-nums;
     text-shadow: 0 1px 2px rgba(0,0,0,0.18);
   }
+  /* Vùng chạm cao 24px cho dễ bấm bằng ngón tay, còn phần nhìn thấy vẫn là
+     thanh mảnh 4px (vẽ ở các rule -track bên dưới) */
   input[type="range"] {
     flex: 1;
     -webkit-appearance: none;
     appearance: none;
+    height: 24px;
+    margin: 0;
+    background: transparent;
+    outline: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  input[type="range"]::-moz-range-track {
     height: 4px;
     border-radius: 2px;
     background: var(--border-soft);
-    outline: none;
   }
   input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
+    margin-top: -5px; /* căn nút tròn 14px vào giữa thanh 4px */
     width: 14px;
     height: 14px;
     border-radius: 50%;
@@ -383,6 +401,30 @@
     height: 4px;
     border-radius: 2px;
     background: linear-gradient(to right, var(--accent) var(--progress-pct, 0%), var(--border-soft) 0%);
+  }
+
+  /* Nhãn tên bài nổi phía trên nút kéo khi đang kéo thanh tiến trình */
+  .seek-label {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    margin-bottom: 6px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--accent-contrast);
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+    text-shadow: none;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+  }
+  .seek-label.show {
+    opacity: 1;
+    transform: translateY(0);
   }
 
   /* ---------- Lưới 10 nút số ---------- */
@@ -1432,14 +1474,52 @@ audio.addEventListener('timeupdate', () => {
   resumeAudioCtxIfNeeded(); // lớp bảo hiểm thêm, phòng khi các sự kiện visibility/focus không bắt kịp
 });
 
+// Nhãn tên bài hiện phía trên nút kéo trong lúc kéo thanh tiến trình
+const seekLabel = document.createElement('div');
+seekLabel.className = 'seek-label';
+seekLabel.setAttribute('aria-hidden', 'true');
+progress.parentNode.appendChild(seekLabel);
+let seekLabelTimer = null;
+
+function showSeekLabel(time) {
+  if (!audio.duration) return; // chưa biết độ dài file thì chưa tính được vị trí
+  const idx = getCurrentTrackIndex(time);
+  const name = (CONFIG.trackTitles && CONFIG.trackTitles[idx]) || ('Bài ' + (idx + 1));
+  seekLabel.textContent = name;
+
+  // Nút số tương ứng sáng lên ngay trong lúc kéo
+  trackGrid.querySelectorAll('button').forEach((b, i) => b.classList.toggle('active', i === idx));
+
+  // Đặt nhãn ngay trên nút kéo, nhưng không để tràn ra ngoài 2 mép
+  const row = progress.parentNode;
+  const pct = progress.value / 1000;
+  const thumb = 14;
+  let x = progress.offsetLeft + thumb / 2 + pct * (progress.offsetWidth - thumb);
+  const half = seekLabel.offsetWidth / 2;
+  x = Math.max(half, Math.min(row.clientWidth - half, x));
+  seekLabel.style.left = (x - half) + 'px';
+
+  seekLabel.classList.add('show');
+  clearTimeout(seekLabelTimer);
+}
+function hideSeekLabel() {
+  clearTimeout(seekLabelTimer);
+  seekLabelTimer = setTimeout(() => seekLabel.classList.remove('show'), 400);
+}
+
 progress.addEventListener('input', () => {
   isSeeking = true;
   const pct = progress.value / 1000;
   const seekTime = pct * (audio.duration || 0);
   currentTimeEl.textContent = formatSeconds(seekTime);
   progress.style.setProperty('--progress-pct', (progress.value / 10) + '%');
+  showSeekLabel(seekTime);
 });
+progress.addEventListener('pointerup', hideSeekLabel);
+progress.addEventListener('touchend', hideSeekLabel);
+progress.addEventListener('blur', hideSeekLabel);
 progress.addEventListener('change', () => {
+  hideSeekLabel();
   cancelResume();
   const pct = progress.value / 1000;
   audio.currentTime = pct * (audio.duration || 0);
@@ -1484,7 +1564,16 @@ function renderLyrics(idx) {
   lyricsBox.textContent = text;
   lyricsBox.scrollTop = 0; // sang bài mới thì cuộn về dòng đầu
   lyricsIdx = idx;
+  updateLyricsFade();
 }
+
+// Bật/tắt lớp mờ ở mép dưới: chỉ hiện khi vẫn còn chữ chưa cuộn tới
+function updateLyricsFade() {
+  const more = lyricsBox.scrollTop + lyricsBox.clientHeight < lyricsBox.scrollHeight - 4;
+  lyricsBox.classList.toggle('has-more', more);
+}
+lyricsBox.addEventListener('scroll', updateLyricsFade, { passive: true });
+window.addEventListener('resize', () => { if (lyricsMode) updateLyricsFade(); });
 
 btnLyrics.addEventListener('click', () => {
   lyricsMode = !lyricsMode;
@@ -1523,10 +1612,10 @@ btnPrev.addEventListener('click', () => {
 CONFIG.audio.trackStarts.forEach((_, i) => {
   const btn = document.createElement('button');
   btn.textContent = String(i + 1);
-  // Rê chuột vào nút số sẽ hiện "3. Mèo Đi Heels"; trình đọc màn hình cũng đọc được tên bài
+  // Rê chuột vào nút số sẽ hiện tên bài (vd. "Mèo Đi Heels"); trình đọc màn hình cũng đọc được tên bài
   const trackName = CONFIG.trackTitles && CONFIG.trackTitles[i];
   if (trackName) {
-    btn.title = (i + 1) + '. ' + trackName;
+    btn.title = trackName;
     btn.setAttribute('aria-label', 'Bài ' + (i + 1) + ': ' + trackName);
   }
   btn.addEventListener('click', () => {
