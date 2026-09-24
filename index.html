@@ -373,6 +373,12 @@
     #btn-play img { width: 48px; height: 48px; }
     .btn-lyrics-toggle { padding: 5px 7px; font-size: 0.62rem; }
   }
+  @container (max-width: 240px) {
+    .controls { gap: 6px; }
+    #btn-prev img, #btn-next img { width: 30px; height: 30px; }
+    #btn-play img { width: 42px; height: 42px; }
+    .btn-lyrics-toggle { padding: 4px 6px; font-size: 0.58rem; }
+  }
   /* Dự phòng cho trình duyệt cũ không hỗ trợ container query */
   @media (max-width: 420px) {
     .controls { gap: 12px; }
@@ -647,24 +653,26 @@
     display: block;
   }
   /* ---------- Điện thoại xoay ngang ----------
-     Bên trái: ảnh bìa, bên dưới là tên album + nghệ sĩ.
-     Bên phải: player.
-     Bên dưới cả hai: nút Stream & Download, rồi các link Stream / Social. */
+     Màn hình chia đôi:
+       nửa trái: ảnh bìa (đĩa) to, tên album + nghệ sĩ nhỏ bên dưới
+       nửa phải: player dạng dọc, 10 nút số chia 2 cột (1–5 | 6–10)
+     Nút Stream & Download nằm ngay dưới mép màn hình, cuộn xuống mới thấy. */
   @media (orientation: landscape) and (max-height: 520px) {
-    .page { max-width: 900px; }
+    .page { max-width: 960px; }
     .first-screen {
       display: grid;
-      grid-template-columns: auto minmax(0, 1fr);
-      column-gap: 20px;
-      align-items: start;
+      grid-template-columns: 1fr 1fr;
+      /* hàng 1: ảnh bìa (co giãn) | hàng 2: tên album | hàng 3: nút Stream & Download */
+      grid-template-rows: minmax(0, 1fr) auto 96px;
+      column-gap: 24px;
+      box-sizing: border-box;
+      /* 2 hàng đầu vừa khít 1 màn hình (trừ 20px trên + 20px dưới), hàng 3 nằm dưới mép màn hình */
+      height: calc(100vh + 76px) !important;
+      height: calc(100svh + 76px) !important;
+      min-height: 0;
       max-height: none !important;
-      height: auto !important;
-      /* Chiếm 1 màn hình, cả cụm (ảnh bìa + player + nút Stream & Download) nằm giữa theo chiều dọc */
-      min-height: 100vh;
-      min-height: 100svh;
-      align-content: center;
-      padding-top: calc(env(safe-area-inset-top, 0px) + 24px); /* khoảng trống phía trên khi xoay ngang */
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+      padding-top: calc(env(safe-area-inset-top, 0px) + 20px);
+      padding-bottom: 0;
     }
     .cover-wrap {
       grid-column: 1;
@@ -672,43 +680,70 @@
       flex: none !important;
       aspect-ratio: auto !important;
       min-height: 0 !important;
-      container-type: normal !important;
+      container-type: size !important;
+      align-items: flex-end;   /* ảnh bìa nằm sát trên tên album */
+      justify-content: center;
     }
     .cover-disc {
-      /* chừa chỗ cho khoảng trống trên, tên album và nút Stream & Download bên dưới,
-         và không rộng quá 38% bề ngang */
-      width: min(calc(100vh - 175px), 38vw) !important;
-      width: min(calc(100svh - 175px), 38vw) !important;
+      width: min(100cqw, 100cqh) !important;
       max-width: none !important;
     }
     .album-info {
       grid-column: 1;
       grid-row: 2;
-      margin-top: 12px;
-      width: 0;
-      min-width: 100%; /* chữ xuống dòng theo bề ngang ảnh bìa, không kéo rộng cột */
+      margin-top: 10px;
     }
-    .album-info h1 { font-size: 1.2rem; }
-    .album-info p { font-size: 1rem; }
+    .album-info h1 { font-size: 1rem; }
+    .album-info p { font-size: 0.85rem; margin-top: 2px; }
     .player {
       grid-column: 2;
       grid-row: 1 / span 2;
+      align-self: center;
+      justify-self: center;
+      width: 100%;
+      max-width: 340px;
+      box-sizing: border-box;
       margin-top: 0;
-      padding: 12px 14px 14px; /* player gọn hơn một chút cho vừa chiều cao màn hình ngang */
+      padding: 12px 14px 14px;
     }
-    .soundwave { height: 28px; margin-top: 8px; }
-    .progress-row { margin-top: 6px; }
-    .track-grid { margin-top: 10px; }
-    .track-grid button { height: 38px; }
+    .soundwave { height: 24px; margin-top: 8px; }
+    .progress-row { margin-top: 4px; }
+    /* 10 nút số chia 2 cột: cột trái 1–5, cột phải 6–10 */
+    .track-grid {
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: repeat(5, auto);
+      grid-auto-flow: column;
+      gap: 6px 8px;
+      margin-top: 8px;
+    }
+    .track-grid button { height: 30px; }
+    /* Khung Lyrics / Credits cao bằng đúng lưới số, bật/tắt không bị nhảy */
+    .lyrics-box {
+      margin-top: 8px;
+      height: 174px;
+      max-height: 174px;
+      box-sizing: border-box;
+    }
     .cta-static {
       grid-column: 1 / -1;
       grid-row: 3;
+      align-self: center;
+      margin-top: 0;
     }
     .streaming, .socials {
       max-width: 480px;
       margin-left: auto;
       margin-right: auto;
     }
+  }
+  /* Màn hình ngang rất thấp (vd. iPhone SE): thu nhỏ thêm player */
+  @media (orientation: landscape) and (max-height: 340px) {
+    .first-screen { padding-top: calc(env(safe-area-inset-top, 0px) + 12px); height: calc(100svh + 84px) !important; }
+    .player { padding: 10px 12px 12px; }
+    .soundwave { height: 18px; margin-top: 6px; }
+    .track-grid { gap: 4px 6px; margin-top: 6px; }
+    .track-grid button { height: 25px; font-size: 0.85rem; }
+    .lyrics-box { height: 141px; max-height: 141px; margin-top: 6px; }
   }
 </style>
 </head>
