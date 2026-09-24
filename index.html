@@ -341,6 +341,22 @@
   }
   /* Điện thoại hẹp: thu nhỏ nhẹ 3 nút điều khiển và 2 nút Credits/Lyrics
      để không đè lên nhau */
+  /* Kích thước nút tính theo bề ngang của KHUNG PLAYER (không phải cả màn hình),
+     để khi xoay ngang, player nằm ở cột bên phải hẹp hơn vẫn không bị đè nút */
+  .player { container-type: inline-size; }
+  @container (max-width: 348px) {
+    .controls { gap: 12px; }
+    #btn-prev img, #btn-next img { width: 40px; height: 40px; }
+    #btn-play img { width: 54px; height: 54px; }
+    .btn-lyrics-toggle { padding: 6px 9px; font-size: 0.68rem; }
+  }
+  @container (max-width: 293px) {
+    .controls { gap: 8px; }
+    #btn-prev img, #btn-next img { width: 34px; height: 34px; }
+    #btn-play img { width: 48px; height: 48px; }
+    .btn-lyrics-toggle { padding: 5px 7px; font-size: 0.62rem; }
+  }
+  /* Dự phòng cho trình duyệt cũ không hỗ trợ container query */
   @media (max-width: 420px) {
     .controls { gap: 12px; }
     #btn-prev img, #btn-next img { width: 40px; height: 40px; }
@@ -612,6 +628,42 @@
     width: 22px;
     height: 22px;
     display: block;
+  }
+  /* ---------- Điện thoại xoay ngang ----------
+     Ảnh bìa bên trái, tên album + player + nút Stream & Download bên phải,
+     các link Stream / Social vẫn nằm bên dưới. */
+  @media (orientation: landscape) and (max-height: 520px) {
+    .page { max-width: 900px; }
+    .first-screen {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      column-gap: 20px;
+      align-items: start;
+      max-height: none !important;
+    }
+    .cover-wrap {
+      grid-column: 1;
+      grid-row: 1 / span 3;
+      flex: none !important;
+      aspect-ratio: auto !important;
+      min-height: 0 !important;
+      container-type: normal !important;
+    }
+    .cover-disc {
+      /* vừa chiều cao màn hình, nhưng không rộng quá 38% bề ngang */
+      width: min(calc(100vh - 24px), 38vw) !important;
+      width: min(calc(100svh - 24px), 38vw) !important;
+      max-width: none !important;
+    }
+    .album-info { grid-column: 2; margin-top: 0; }
+    .album-info h1 { font-size: 1.3rem; }
+    .player { grid-column: 2; }
+    .cta-static { grid-column: 2; }
+    .streaming, .socials {
+      max-width: 480px;
+      margin-left: auto;
+      margin-right: auto;
+    }
   }
 </style>
 </head>
@@ -1836,8 +1888,21 @@ window.addEventListener('resize', () => { if (lyricsMode) updateLyricsFade(); })
 // 2) Đang mở Lyrics: giữ nguyên cỡ và vị trí ảnh bìa, player chỉ dài ra phía dưới.
 const coverWrap = document.querySelector('.cover-wrap');
 const firstScreen = coverWrap.parentNode;
+const landscapeMQ = window.matchMedia('(orientation: landscape) and (max-height: 520px)');
 function layoutFirstScreen() {
   const lyricsScroll = lyricsBox.scrollTop;
+
+  // Xoay ngang: ảnh bìa và player nằm cạnh nhau, không cần co giãn / giữ cỡ ảnh bìa
+  if (landscapeMQ.matches) {
+    coverWrap.style.flex = '';
+    firstScreen.style.paddingTop = '';
+    firstScreen.style.maxHeight = '';
+    firstScreen.classList.remove('expanded');
+    trackGrid.style.display = lyricsMode ? 'none' : '';
+    lyricsBox.style.display = lyricsMode ? 'block' : 'none';
+    lyricsBox.scrollTop = lyricsScroll;
+    return;
+  }
 
   // Về bố cục gốc (lưới số) để đo
   coverWrap.style.flex = '';
@@ -1876,6 +1941,9 @@ btnCredits.addEventListener('click', () => setPanel(panel === 'credits' ? null :
 // Xoay màn hình / đổi kích thước cửa sổ thì tính lại. Khi đang mở Lyrics chỉ tính lại
 // lúc bề ngang đổi (xoay máy), vì thanh địa chỉ trên điện thoại ẩn/hiện liên tục khi cuộn.
 let lastLayoutWidth = window.innerWidth;
+if (landscapeMQ.addEventListener) {
+  landscapeMQ.addEventListener('change', () => { layoutFirstScreen(); if (lyricsMode) updateLyricsFade(); });
+}
 window.addEventListener('resize', () => {
   if (lyricsMode && window.innerWidth === lastLayoutWidth) return;
   lastLayoutWidth = window.innerWidth;
