@@ -18,6 +18,7 @@
 <meta name="twitter:card" content="summary_large_image">
 
 <link rel="icon" href="assets/cover.jpg">
+<link rel="preload" as="image" href="assets/Background.webp" fetchpriority="high">
 
 <style>
   /* ============================================================
@@ -68,6 +69,7 @@
   /* Ảnh nền cố định phía sau toàn trang, không dùng background-attachment:fixed
      để tránh lỗi hiển thị trên Safari/iOS. */
   .bg-layer {
+    background-color: #1a1210;
     position: fixed;
     inset: 0;
     background-image: url('assets/Background.webp');
@@ -450,7 +452,7 @@
 
   <div class="cover-wrap">
     <div class="cover-disc">
-      <img id="cover-img" src="assets/cover.jpg" alt="">
+      <img id="cover-img" src="assets/cover.jpg" fetchpriority="high" alt="">
       <div class="cover-ring"></div>
       <div class="cover-hole"></div>
     </div>
@@ -1307,8 +1309,13 @@ btnPlay.addEventListener('click', () => {
 });
 audio.addEventListener('play', () => {
   setPlayIcon(true);
-  setCoverSpinning(true);
   if (!analyserReady) startFakeWaveTargetLoop(); // fallback nếu Web Audio API không dùng được
+});
+audio.addEventListener('playing', () => {
+  setCoverSpinning(true);   // chỉ quay khi đã thật sự có tiếng
+});
+audio.addEventListener('waiting', () => {
+  setCoverSpinning(false);  // đang tải nhạc thì tạm ngừng quay
 });
 audio.addEventListener('pause', () => {
   setPlayIcon(false);
