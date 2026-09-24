@@ -88,9 +88,6 @@
     background-position: center;
     background-repeat: no-repeat;
     z-index: -2;
-    /* Phóng to nhẹ hơn kích thước thật để khi feDisplacementMap "kéo méo" các
-       điểm ảnh, không bị lộ ra viền trống ngoài rìa ảnh. */
-    transform: scale(1.15);
   }
   .bg-overlay {
     position: fixed;
@@ -129,7 +126,7 @@
      đúng tâm ảnh cover bất kể cover-wrap rộng bao nhiêu. */
   .cover-disc {
     position: relative;
-    width: 65%;
+    width: 100%; /* ảnh bìa rộng bằng khung player (trước đây 65%) */
     aspect-ratio: 1 / 1;
   }
   .cover-disc img {
@@ -226,10 +223,10 @@
 
   .album-info {
     text-align: center;
-    margin-top: 18px;
+    margin-top: 22px;
   }
   .album-info h1 {
-    font-size: 1.25rem;
+    font-size: 1.6rem; /* tên album (trước đây 1.25rem) */
     font-weight: 700;
     margin: 0;
     line-height: 1.3;
@@ -237,9 +234,9 @@
     text-shadow: 0 2px 8px rgba(0,0,0,0.45);
   }
   .album-info p {
-    font-size: 0.95rem;
+    font-size: 1.1rem; /* tên nghệ sĩ (trước đây 0.95rem) */
     color: rgba(255,255,255,0.85);
-    margin: 4px 0 0;
+    margin: 6px 0 0;
     text-shadow: 0 2px 8px rgba(0,0,0,0.45);
   }
 
@@ -1223,9 +1220,14 @@ function stopFakeWaveTargetLoop() {
   swTargetValues = swIdleValues.slice();
 }
 
+// Kích thước canvas được đo 1 lần rồi nhớ lại, chỉ đo lại khi đổi kích thước cửa sổ
+// (trước đây đo lại ở mỗi khung hình, 60 lần/giây, rất tốn).
+let swW = 0, swH = 0;
 function resizeSoundwave() {
   const dpr = window.devicePixelRatio || 1;
   const rect = soundwaveCanvas.getBoundingClientRect();
+  swW = rect.width;
+  swH = rect.height;
   soundwaveCanvas.width = Math.max(1, rect.width * dpr);
   soundwaveCanvas.height = Math.max(1, rect.height * dpr);
   swCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1244,13 +1246,19 @@ function swRoundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+// Màu accent không đổi, nên chỉ đọc 1 lần rồi nhớ lại
+let swAccent = null;
 function getAccentColor() {
-  return getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#df4a5e';
+  if (!swAccent) {
+    swAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#df4a5e';
+  }
+  return swAccent;
 }
 
 function drawSoundwave(values) {
-  const rect = soundwaveCanvas.getBoundingClientRect();
-  const w = rect.width, h = rect.height;
+  // Lúc trang vừa load có thể chưa đo được (kích thước = 0) -> thử đo lại
+  if (swW <= 0 || swH <= 0) resizeSoundwave();
+  const w = swW, h = swH;
   // Guard: lúc trang vừa load, canvas có thể chưa có kích thước (w hoặc h = 0)
   // vì layout/CSS chưa kịp áp dụng xong. Nếu vẽ lúc này, phép tính bề rộng cột
   // sóng sẽ bị âm và làm crash script (arcTo IndexSizeError), khiến toàn bộ
