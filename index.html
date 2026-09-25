@@ -772,6 +772,9 @@
   @media (orientation: landscape) and (min-width: 900px) and (min-height: 521px) {
     html, body { overflow: hidden; }
     body { align-items: center; height: 100vh; height: 100dvh; }
+    /* Trình duyệt cũ không hỗ trợ zoom (Firefox < 126): cho cuộn lại, tránh bị cắt nội dung */
+    html.no-zoom, html.no-zoom body { overflow: auto; }
+    html.no-zoom body { height: auto; align-items: flex-start; }
     .page {
       zoom: var(--desk-zoom, 1);
       width: 1148px;
@@ -866,6 +869,37 @@
   @media (prefers-reduced-motion: reduce) {
     .player, .streaming { transition: none !important; }
   }
+  /* ---------- Rê chuột (chỉ máy có chuột, không ảnh hưởng cảm ứng) ---------- */
+  @media (hover: hover) and (pointer: fine) {
+    button, .streaming a, .socials a,
+    .btn-lyrics-toggle {
+      transition: transform 0.15s ease, background-color 0.15s ease, filter 0.15s ease;
+    }
+    .streaming a:hover, .socials a:hover {
+      background: color-mix(in srgb, var(--card-bg) 88%, var(--text));
+    }
+    .track-grid button:not(.active):hover {
+      background: color-mix(in srgb, var(--track-btn-bg), var(--text) 10%);
+    }
+    .track-grid button.active:hover { filter: brightness(1.08); }
+    .btn-lyrics-toggle:hover {
+      background: color-mix(in srgb, var(--accent) 14%, transparent);
+    }
+    .controls button:not(.btn-lyrics-toggle):hover img { filter: brightness(1.1); }
+    .controls button img { transition: filter 0.15s ease; }
+  }
+  /* ---------- Viền focus khi dùng bàn phím (Tab) — bấm chuột / chạm không hiện ---------- */
+  button:focus-visible, .socials a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+  input[type="range"]:focus-visible::-webkit-slider-thumb {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+  input[type="range"]:focus-visible::-moz-range-thumb {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+
   /* Màn hình ngang rất thấp (vd. iPhone SE): gọn thêm một chút */
   @media (orientation: landscape) and (max-height: 340px) {
     .first-screen {
@@ -2047,7 +2081,10 @@ function getCurrentTrackIndex(time) {
 function updateActiveTrack() {
   const idx = getCurrentTrackIndex(audio.currentTime);
   const buttons = trackGrid.querySelectorAll('button');
-  buttons.forEach((b, i) => b.classList.toggle('active', i === idx));
+  buttons.forEach((b, i) => {
+    b.classList.toggle('active', i === idx);
+    if (i === idx) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
+  });
   setThemeTrack(idx);
   if (lyricsMode && idx !== lyricsIdx) renderLyrics(idx); // chỉ ghi lại khi đổi bài
   updateTabTitle(idx);
@@ -2152,14 +2189,19 @@ const landscapeMQ = window.matchMedia(LANDSCAPE_QUERY);
 // Phải khớp với khối "Máy tính" trong CSS
 const DESKTOP_QUERY = '(orientation: landscape) and (min-width: 900px) and (min-height: 521px)';
 const DESK_W = 1148, DESK_H = 625;   // kích thước khung cả trang (khớp khối "Máy tính" trong CSS)
-const DESK_MARGIN_X = 240, DESK_MARGIN_Y = 160; // tổng lề trái+phải / trên+dưới chừa quanh khung (lề rộng = dễ thở)
+// Tổng lề trái+phải / trên+dưới chừa quanh khung: bằng 12% cửa sổ, tối thiểu 48px, tối đa
+// 240px (ngang) / 160px (dọc). Màn hình lớn lề rộng cho dễ thở; màn hình nhỏ (laptop nhỏ,
+// iPad xoay ngang) lề hẹp lại để chữ và nút không bị thu nhỏ quá mức.
+const DESK_MARGIN_X_MAX = 240, DESK_MARGIN_Y_MAX = 160, DESK_MARGIN_MIN = 48, DESK_MARGIN_RATIO = 0.12;
+const clampMargin = (size, max) => Math.min(max, Math.max(DESK_MARGIN_MIN, size * DESK_MARGIN_RATIO));
 const DESK_MAX_ZOOM = 1.25; // không phóng to quá 125% trên màn hình lớn
 const desktopMQ = window.matchMedia(DESKTOP_QUERY);
+if (!(window.CSS && CSS.supports && CSS.supports('zoom', '1'))) root.classList.add('no-zoom');
 function updateDesktopZoom() {
   let z = 1;
   if (desktopMQ.matches) {
-    z = Math.min((window.innerWidth - DESK_MARGIN_X) / DESK_W, (window.innerHeight - DESK_MARGIN_Y) / DESK_H);
-    // Không nhỏ hơn 1 (trừ khi cửa sổ quá hẹp, lúc đó thu nhỏ cho vừa)
+    const w = window.innerWidth, h = window.innerHeight;
+    z = Math.min((w - clampMargin(w, DESK_MARGIN_X_MAX)) / DESK_W, (h - clampMargin(h, DESK_MARGIN_Y_MAX)) / DESK_H);
     z = Math.min(DESK_MAX_ZOOM, z); // luôn vừa khít cửa sổ -> không bao giờ phải cuộn
   }
   root.style.setProperty('--desk-zoom', z.toFixed(3));
