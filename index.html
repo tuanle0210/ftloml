@@ -839,11 +839,9 @@
       font-size: 1rem;
     }
     .streaming a img { width: 28px; height: 28px; }
-    /* Download nằm riêng hàng cuối, ở giữa, rộng bằng 1 nút */
+    /* Download nằm riêng hàng cuối, rộng hết hàng */
     .streaming a:last-child:nth-child(odd) {
       grid-column: 1 / -1;
-      justify-self: center;
-      width: calc(50% - 6px);
     }
 
     /* Dưới cùng, giữa trang */
@@ -2141,8 +2139,8 @@ const landscapeMQ = window.matchMedia(LANDSCAPE_QUERY);
 // Phải khớp với khối "Máy tính" trong CSS
 const DESKTOP_QUERY = '(orientation: landscape) and (min-width: 900px) and (min-height: 521px)';
 const DESK_W = 1148, DESK_H = 625;   // kích thước khung cả trang (khớp khối "Máy tính" trong CSS)
-const DESK_MARGIN_X = 128, DESK_MARGIN_Y = 96; // tổng lề trái+phải / trên+dưới chừa quanh khung
-const DESK_MAX_ZOOM = 1.5;
+const DESK_MARGIN_X = 240, DESK_MARGIN_Y = 160; // tổng lề trái+phải / trên+dưới chừa quanh khung (lề rộng = dễ thở)
+const DESK_MAX_ZOOM = 1.25; // không phóng to quá 125% trên màn hình lớn
 const desktopMQ = window.matchMedia(DESKTOP_QUERY);
 function updateDesktopZoom() {
   let z = 1;
