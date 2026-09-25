@@ -809,7 +809,6 @@
       grid-row: 1;
       height: 302px !important;
       max-width: none;
-      align-self: stretch;
       padding: 18px 22px 20px;
     }
     .soundwave, .player.panel-open .soundwave { flex: none; height: 48px; min-height: 0; }
@@ -820,6 +819,17 @@
       margin-top: 14px;
     }
     .cta-static { display: none; }
+    /* Đang mở Lyrics / Credits: player kéo dài xuống hết cột phải (bằng ảnh bìa) để hiện được
+       nhiều dòng; các nút Streaming mờ dần rồi ẩn. Bấm "Tracks" thì chạy ngược lại. */
+    .player {
+      align-self: start;
+      position: relative;
+      z-index: 1;
+      transition: height 0.3s ease;
+    }
+    .player.panel-open { height: 480px !important; }
+    .streaming { transition: opacity 0.2s ease, visibility 0.2s; }
+    body.panel-open .streaming { opacity: 0; visibility: hidden; }
     /* 14px khoảng cách + 3 hàng nút 48px + 2 khe 10px = 178px (đáy nút Download = đáy ảnh bìa) */
     .streaming {
       grid-column: 2;
@@ -852,6 +862,9 @@
       margin: 0;
       max-width: none;
     }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .player, .streaming { transition: none !important; }
   }
   /* Màn hình ngang rất thấp (vd. iPhone SE): gọn thêm một chút */
   @media (orientation: landscape) and (max-height: 340px) {
@@ -2179,6 +2192,7 @@ function layoutFirstScreen() {
     playerEl.style.height = '';
     playerEl.style.height = coverDisc.offsetHeight + 'px';
     playerEl.classList.toggle('panel-open', lyricsMode);
+    document.body.classList.toggle('panel-open', lyricsMode);
     coverWrap.style.flex = '';
     firstScreen.style.paddingTop = '';
     firstScreen.style.height = '';
@@ -2191,6 +2205,7 @@ function layoutFirstScreen() {
   }
 
   // Về bố cục gốc (lưới số) để đo
+  document.body.classList.remove('panel-open');
   playerEl.style.height = '';
   playerEl.classList.remove('panel-open');
   coverWrap.style.flex = '';
@@ -2216,6 +2231,11 @@ function layoutFirstScreen() {
   lyricsBox.style.display = 'block';
   lyricsBox.scrollTop = lyricsScroll;
 }
+
+// Máy tính: player kéo dài xong thì tính lại lớp mờ ở cuối khung lyrics
+playerEl.addEventListener('transitionend', e => {
+  if (e.target === playerEl && e.propertyName === 'height' && lyricsMode) updateLyricsFade();
+});
 
 // Mở Lyrics / Credits / quay về lưới số. Mở cái này thì cái kia tự đóng.
 function setPanel(next) {
