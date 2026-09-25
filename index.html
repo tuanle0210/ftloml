@@ -793,6 +793,36 @@
       gap: 10px;
       margin-top: 14px;
     }
+    /* 5 nút Streaming xếp 1 hàng ngang, rộng đúng bằng khối ảnh bìa + player phía trên */
+    .streaming {
+      flex-direction: row;
+      gap: 12px;
+      width: calc(1080px * var(--desk-zoom, 1));
+      max-width: 100%;
+    }
+    .streaming a {
+      flex: 1 1 0;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-sizing: border-box;
+      padding: 12px 14px;
+      font-size: 1rem;
+    }
+    .streaming a img { width: 28px; height: 28px; flex: none; }
+    .streaming a span {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+  /* Cửa sổ máy tính hẹp (900–1180px): nút Streaming gọn hơn cho vừa tên dài */
+  @media (orientation: landscape) and (min-width: 900px) and (min-height: 521px) and (max-width: 1180px) {
+    .streaming { gap: 10px; }
+    .streaming a { gap: 8px; padding: 10px 8px; font-size: 0.9rem; }
+    .streaming a img { width: 24px; height: 24px; }
   }
   /* Màn hình ngang rất thấp (vd. iPhone SE): gọn thêm một chút */
   @media (orientation: landscape) and (max-height: 340px) {
@@ -2083,13 +2113,27 @@ const DESK_W = 1080, DESK_H = 400;   // kích thước khung gốc (giống đi�
 const DESK_MARGIN_X = 96, DESK_MARGIN_Y = 64; // chừa lề quanh khung sau khi phóng to
 const DESK_MAX_ZOOM = 2.2;
 const DESK_SCALE = 0.5; // to bằng bao nhiêu phần so với mức vừa khít màn hình (1 = khít, 0.5 = một nửa)
+const DESK_MIN_ZOOM = 0.55; // cửa sổ quá thấp thì không co nhỏ hơn mức này (lúc đó mới phải cuộn)
 const desktopMQ = window.matchMedia(DESKTOP_QUERY);
+const pageEl = document.querySelector('.page');
+const ctaBtn = document.getElementById('scroll-cta');
+const streamEl = document.getElementById('streaming-list');
+const socialsEl = document.getElementById('socials-list');
 function updateDesktopZoom() {
   let z = 1;
   if (desktopMQ.matches) {
     z = Math.min((window.innerWidth - DESK_MARGIN_X) / DESK_W, (window.innerHeight - DESK_MARGIN_Y) / DESK_H);
     // Không nhỏ hơn 1 (trừ khi cửa sổ quá hẹp, lúc đó thu nhỏ cho vừa)
     z = Math.min(DESK_MAX_ZOOM, Math.max(Math.min(1, z), z * DESK_SCALE));
+    // Cả trang phải vừa 1 màn hình, không cuộn: phần bên dưới màn hình đầu không bị zoom,
+    // nên đo nó rồi co khung màn hình đầu cho vừa chỗ còn lại (chỉ co khi thiếu chỗ).
+    const pageCS = getComputedStyle(pageEl);
+    let rest = parseFloat(pageCS.paddingTop) + parseFloat(pageCS.paddingBottom) + 2; // +2px chống lệch làm tròn
+    [ctaBtn, streamEl, socialsEl].forEach(el => {
+      rest += el.offsetHeight + parseFloat(getComputedStyle(el).marginTop);
+    });
+    const zFit = (window.innerHeight - rest) / DESK_H;
+    z = Math.max(DESK_MIN_ZOOM, Math.min(z, zFit));
   }
   root.style.setProperty('--desk-zoom', z.toFixed(3));
   // Zoom đổi kích thước hiển thị của soundwave -> tạo lại canvas cho nét
@@ -2100,7 +2144,6 @@ updateDesktopZoom();
 window.addEventListener('resize', updateDesktopZoom);
 // Nút "Stream & Download": màn hình dọc nằm trong màn hình đầu (dưới player);
 // xoay ngang / máy tính thì chuyển xuống ngay trên các nút Streaming.
-const ctaBtn = document.getElementById('scroll-cta');
 const ctaHome = ctaBtn.previousElementSibling; // khối .player, nút nằm ngay sau nó
 function placeCta() {
   if (landscapeMQ.matches) {
@@ -2446,6 +2489,10 @@ function addSocial(href, iconSrc, label) {
 addSocial(CONFIG.social.facebook, 'assets/icons/facebook.svg', 'Facebook');
 addSocial(CONFIG.social.instagram, 'assets/icons/instagram.svg', 'Instagram');
 addSocial('mailto:' + CONFIG.social.email, 'assets/icons/mail.svg', 'Gmail');
+
+// Đã có đủ nút Streaming / Social -> tính lại zoom máy tính cho cả trang vừa 1 màn hình
+updateDesktopZoom();
+layoutFirstScreen();
 </script>
 
 </body>
