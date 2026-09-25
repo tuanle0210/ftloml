@@ -618,7 +618,7 @@
     font-weight: 700;
     font-size: 1.2rem;
     background: var(--card-bg);
-    border: 2px solid var(--accent);
+    border: none;
     color: var(--link-text);
     box-shadow: 0 4px 14px rgba(0,0,0,0.08);
     -webkit-tap-highlight-color: transparent;
@@ -762,67 +762,101 @@
     }
   }
   /* ---------- Máy tính ----------
-     Dựng khung màn hình đầu cố định 1080×400 (ảnh bìa 1 phần, player 2 phần, nút số xếp ngang),
-     rồi phóng to cả khối bằng zoom cho vừa màn hình. Nhờ vậy tỉ lệ ảnh bìa / player /
-     nút / chữ giống hệt bản điện thoại, chỉ to hơn. Mức zoom (--desk-zoom) do script tính
-     theo kích thước cửa sổ. Sửa kích thước khung thì sửa cả DESK_W / DESK_H trong script.
+     Cả trang là 1 khung cố định 1128×603 (DESK_W × DESK_H trong script), phóng to / thu nhỏ
+     bằng zoom cho vừa cửa sổ, căn giữa màn hình, không cuộn.
+       cột trái : ảnh bìa lớn, tên album + nghệ sĩ bên dưới
+       cột phải : player → nút Stream & Download → Streaming (2 cột, Download ở giữa)
+       dưới cùng: icon Social
      min-height: 521px để không ảnh hưởng điện thoại xoay ngang. */
   @media (orientation: landscape) and (min-width: 900px) and (min-height: 521px) {
+    html, body { overflow: hidden; }
+    body { align-items: center; height: 100vh; height: 100dvh; }
     .page {
-      max-width: none;
-      /* khoảng trống phía trên cover + player, trên cùng của trang */
-      padding-top: 56px;
-    }
-    /* phần Stream nằm ngoài màn hình đầu, cuộn xuống mới thấy (như điện thoại) */
-    .cta-static { margin-top: 24px; } /* khoảng cách từ cover + player xuống nút */
-    .first-screen {
       zoom: var(--desk-zoom, 1);
-      width: 1080px;
-      height: 400px !important;
-      /* ảnh bìa 1 phần bên trái, player 2 phần bên phải */
-      grid-template-columns: 1fr 2fr;
+      width: 1128px;
+      max-width: none;
+      height: 603px;
+      box-sizing: border-box;
+      padding: 0 !important;
+      display: grid;
+      grid-template-columns: 460px 640px;
+      grid-template-rows: 300px auto auto 1fr;
       column-gap: 28px;
-      margin: 0 auto;
-      padding-top: 0;
-      padding-bottom: 0;
     }
-    .player { max-width: none; padding: 18px 22px 20px; }
-    .soundwave, .player.panel-open .soundwave { flex: none; height: 48px; min-height: 0; } /* desktop: cao cố định */
-    .track-grid { flex: 1; grid-template-rows: repeat(2, minmax(0, 1fr)); } /* desktop: nút số lấp đầy */
+    /* Bỏ khung màn hình đầu: các phần bên trong xếp thẳng vào lưới của trang */
+    .first-screen { display: contents; }
+
+    /* Cột trái: ảnh bìa ở trên, tên album + nghệ sĩ ở đáy, cao bằng cột phải */
+    .cover-wrap {
+      grid-column: 1;
+      grid-row: 1 / 4;
+      align-self: start;
+      width: 460px;
+      height: 460px;
+    }
+    .album-info {
+      grid-column: 1;
+      grid-row: 1 / 4;
+      align-self: end;
+      margin: 0;
+    }
+    .album-info h1 { font-size: 1.7rem; }
+    .album-info p { font-size: 1.15rem; margin-top: 4px; }
+
+    /* Cột phải */
+    .player {
+      grid-column: 2;
+      grid-row: 1;
+      height: 300px !important;
+      max-width: none;
+      align-self: stretch;
+      padding: 18px 22px 20px;
+    }
+    .soundwave, .player.panel-open .soundwave { flex: none; height: 48px; min-height: 0; }
     .track-grid {
+      flex: 1;
+      grid-template-rows: repeat(2, minmax(0, 1fr));
       gap: 10px;
       margin-top: 14px;
     }
-    /* 5 nút Streaming xếp 1 hàng ngang, rộng đúng bằng khối ảnh bìa + player phía trên */
+    .cta-static {
+      grid-column: 2;
+      grid-row: 2;
+      justify-self: center;
+      margin: 18px 0 0;
+    }
     .streaming {
-      flex-direction: row;
-      gap: 12px;
-      width: calc(1080px * var(--desk-zoom, 1));
-      max-width: 100%;
+      grid-column: 2;
+      grid-row: 3;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 12px;
+      margin: 14px 0 0;
+      max-width: none;
     }
     .streaming a {
-      flex: 1 1 0;
-      min-width: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
       box-sizing: border-box;
-      padding: 12px 14px;
+      height: 48px;
+      padding: 0 16px;
+      grid-template-columns: 28px 1fr 28px;
       font-size: 1rem;
     }
-    .streaming a img { width: 28px; height: 28px; flex: none; }
-    .streaming a span {
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    .streaming a img { width: 28px; height: 28px; }
+    /* Download nằm riêng hàng cuối, ở giữa, rộng bằng 1 nút */
+    .streaming a:last-child:nth-child(odd) {
+      grid-column: 1 / -1;
+      justify-self: center;
+      width: calc(50% - 6px);
     }
-  }
-  /* Cửa sổ máy tính hẹp (900–1180px): nút Streaming gọn hơn cho vừa tên dài */
-  @media (orientation: landscape) and (min-width: 900px) and (min-height: 521px) and (max-width: 1180px) {
-    .streaming { gap: 10px; }
-    .streaming a { gap: 8px; padding: 10px 8px; font-size: 0.9rem; }
-    .streaming a img { width: 24px; height: 24px; }
+
+    /* Dưới cùng, giữa trang */
+    .socials {
+      grid-column: 1 / -1;
+      grid-row: 4;
+      align-self: end;
+      margin: 0;
+      max-width: none;
+    }
   }
   /* Màn hình ngang rất thấp (vd. iPhone SE): gọn thêm một chút */
   @media (orientation: landscape) and (max-height: 340px) {
@@ -2109,31 +2143,16 @@ const landscapeMQ = window.matchMedia(LANDSCAPE_QUERY);
 // ---------- Máy tính: phóng to khung màn hình đầu cho vừa cửa sổ ----------
 // Phải khớp với khối "Máy tính" trong CSS
 const DESKTOP_QUERY = '(orientation: landscape) and (min-width: 900px) and (min-height: 521px)';
-const DESK_W = 1080, DESK_H = 400;   // kích thước khung gốc (giống điện thoại xoay ngang)
-const DESK_MARGIN_X = 96, DESK_MARGIN_Y = 64; // chừa lề quanh khung sau khi phóng to
-const DESK_MAX_ZOOM = 2.2;
-const DESK_SCALE = 0.5; // to bằng bao nhiêu phần so với mức vừa khít màn hình (1 = khít, 0.5 = một nửa)
-const DESK_MIN_ZOOM = 0.55; // cửa sổ quá thấp thì không co nhỏ hơn mức này (lúc đó mới phải cuộn)
+const DESK_W = 1128, DESK_H = 603;   // kích thước khung cả trang (khớp khối "Máy tính" trong CSS)
+const DESK_MARGIN_X = 128, DESK_MARGIN_Y = 96; // tổng lề trái+phải / trên+dưới chừa quanh khung
+const DESK_MAX_ZOOM = 1.5;
 const desktopMQ = window.matchMedia(DESKTOP_QUERY);
-const pageEl = document.querySelector('.page');
-const ctaBtn = document.getElementById('scroll-cta');
-const streamEl = document.getElementById('streaming-list');
-const socialsEl = document.getElementById('socials-list');
 function updateDesktopZoom() {
   let z = 1;
   if (desktopMQ.matches) {
     z = Math.min((window.innerWidth - DESK_MARGIN_X) / DESK_W, (window.innerHeight - DESK_MARGIN_Y) / DESK_H);
     // Không nhỏ hơn 1 (trừ khi cửa sổ quá hẹp, lúc đó thu nhỏ cho vừa)
-    z = Math.min(DESK_MAX_ZOOM, Math.max(Math.min(1, z), z * DESK_SCALE));
-    // Cả trang phải vừa 1 màn hình, không cuộn: phần bên dưới màn hình đầu không bị zoom,
-    // nên đo nó rồi co khung màn hình đầu cho vừa chỗ còn lại (chỉ co khi thiếu chỗ).
-    const pageCS = getComputedStyle(pageEl);
-    let rest = parseFloat(pageCS.paddingTop) + parseFloat(pageCS.paddingBottom) + 2; // +2px chống lệch làm tròn
-    [ctaBtn, streamEl, socialsEl].forEach(el => {
-      rest += el.offsetHeight + parseFloat(getComputedStyle(el).marginTop);
-    });
-    const zFit = (window.innerHeight - rest) / DESK_H;
-    z = Math.max(DESK_MIN_ZOOM, Math.min(z, zFit));
+    z = Math.min(DESK_MAX_ZOOM, z); // luôn vừa khít cửa sổ -> không bao giờ phải cuộn
   }
   root.style.setProperty('--desk-zoom', z.toFixed(3));
   // Zoom đổi kích thước hiển thị của soundwave -> tạo lại canvas cho nét
@@ -2144,6 +2163,7 @@ updateDesktopZoom();
 window.addEventListener('resize', updateDesktopZoom);
 // Nút "Stream & Download": màn hình dọc nằm trong màn hình đầu (dưới player);
 // xoay ngang / máy tính thì chuyển xuống ngay trên các nút Streaming.
+const ctaBtn = document.getElementById('scroll-cta');
 const ctaHome = ctaBtn.previousElementSibling; // khối .player, nút nằm ngay sau nó
 function placeCta() {
   if (landscapeMQ.matches) {
@@ -2489,10 +2509,6 @@ function addSocial(href, iconSrc, label) {
 addSocial(CONFIG.social.facebook, 'assets/icons/facebook.svg', 'Facebook');
 addSocial(CONFIG.social.instagram, 'assets/icons/instagram.svg', 'Instagram');
 addSocial('mailto:' + CONFIG.social.email, 'assets/icons/mail.svg', 'Gmail');
-
-// Đã có đủ nút Streaming / Social -> tính lại zoom máy tính cho cả trang vừa 1 màn hình
-updateDesktopZoom();
-layoutFirstScreen();
 </script>
 
 </body>
