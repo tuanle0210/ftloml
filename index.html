@@ -640,6 +640,19 @@
     grid-column: 2;
     text-align: center;
   }
+  /* Nút chưa có link thật: mờ đi, không bấm được, có dòng chú thích nhỏ bên dưới tên */
+  .streaming a.soon {
+    opacity: 0.55;
+    cursor: default;
+    box-shadow: none;
+  }
+  .streaming a.soon span small {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    opacity: 0.85;
+  }
 
   /* ---------- Social icons cuối trang ---------- */
   .socials {
@@ -1656,7 +1669,7 @@ Art Director/Designer: Le Anh Tuan
     facebook: "https://facebook.com/tuanleftu",
     instagram: "https://instagram.com/tbob.ins",
     // ĐIỀN EMAIL THẬT — nút Gmail sẽ mở app mail tới đúng địa chỉ này
-    email: "PASTE-EMAIL-THAT-VAO-DAY@gmail.com",
+    email: "tuan.leftu0210@gmail.com",
   },
 };
 
@@ -2643,11 +2656,25 @@ document.getElementById('scroll-cta').addEventListener('click', () => {
 const streamingList = document.getElementById('streaming-list');
 const allButtons = [...CONFIG.streaming, CONFIG.download];
 
+// Link chưa điền (để trống hoặc vẫn còn chữ PASTE) -> nút hiện mờ kèm chữ "Coming Soon",
+// không bấm được. Điền link thật vào CONFIG là nút tự sáng lên, không cần sửa gì thêm.
+const SOON_TEXT = "Coming Soon";
+function isPlaceholder(url) {
+  return !url || url.indexOf('PASTE') !== -1;
+}
+
 allButtons.forEach(item => {
   const a = document.createElement('a');
-  a.href = item.url;
-  a.target = "_blank";
-  a.rel = "noopener";
+  const soon = isPlaceholder(item.url);
+  if (soon) {
+    a.className = 'soon';
+    a.setAttribute('aria-disabled', 'true');
+    a.addEventListener('click', e => e.preventDefault());
+  } else {
+    a.href = item.url;
+    a.target = "_blank";
+    a.rel = "noopener";
+  }
   if (item.icon) {
     const img = document.createElement('img');
     img.src = item.icon;
@@ -2656,6 +2683,11 @@ allButtons.forEach(item => {
   }
   const span = document.createElement('span');
   span.textContent = item.name;
+  if (soon) {
+    const note = document.createElement('small');
+    note.textContent = SOON_TEXT;
+    span.appendChild(note);
+  }
   a.appendChild(span);
   streamingList.appendChild(a);
 });
