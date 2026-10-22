@@ -631,6 +631,64 @@
     font-size: 0.85rem;
     color: var(--text-soft);
   }
+  /* ---------- Nút "Notify me" trong khối đếm ngược ----------
+     Bấm vào mở danh sách lịch (Google / Apple / Outlook) để đặt lời nhắc giờ phát hành.
+     Cùng kiểu nút viền hồng với nút Lyrics/Credits. */
+  .notify { position: relative; margin-top: 16px; }
+  .notify-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border: 2px solid var(--accent);
+    background: transparent;
+    color: var(--accent-ink);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 8px 18px 8px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .notify-btn svg { width: 16px; height: 16px; flex: none; }
+  .notify-btn[aria-expanded="true"] {
+    background: var(--accent);
+    color: var(--accent-contrast);
+  }
+  .notify-btn:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+  .notify-menu {
+    position: absolute;
+    left: 50%;
+    top: calc(100% + 8px);
+    transform: translateX(-50%);
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    min-width: 200px;
+    padding: 6px;
+    background: var(--card-bg);
+    border: 1.5px solid var(--border-soft);
+    border-radius: 14px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.35);
+    text-align: left;
+  }
+  .notify-menu[hidden] { display: none; }
+  /* Không đủ chỗ phía dưới (vd. điện thoại xoay ngang) thì mở lên trên */
+  .notify-menu.up { top: auto; bottom: calc(100% + 8px); }
+  .notify-menu a {
+    display: block;
+    padding: 10px 12px;
+    border-radius: 9px;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 0.92rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .notify-menu a:hover, .notify-menu a:focus-visible {
+    background: var(--track-btn-bg);
+    outline: none;
+  }
+
   @container (min-width: 480px) {
     .countdown-clock { gap: 28px; }
     .countdown-unit { min-width: 72px; }
@@ -984,6 +1042,10 @@
     .track-grid { gap: 5px 8px; margin-top: 6px; }
     .track-grid button { font-size: 0.85rem; }
     .lyrics-box { margin-top: 6px; }
+    .countdown-clock { margin-top: 6px; }
+    .countdown-date { margin-top: 6px; }
+    .notify { margin-top: 8px; }
+    .notify-btn { padding: 6px 14px 6px 11px; font-size: 0.78rem; }
   }
 </style>
 </head>
@@ -1023,6 +1085,17 @@
         <div class="countdown-unit"><span class="countdown-num" id="cd-secs">00</span><span class="countdown-name">Seconds</span></div>
       </div>
       <div class="countdown-date" id="cd-date"></div>
+      <div class="notify">
+        <button class="notify-btn" id="notify-btn" type="button" aria-expanded="false" aria-controls="notify-menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          <span>Notify me</span>
+        </button>
+        <div class="notify-menu" id="notify-menu" hidden>
+          <a id="notify-google" target="_blank" rel="noopener">Google Calendar</a>
+          <a id="notify-apple">Apple Calendar</a>
+          <a id="notify-outlook" target="_blank" rel="noopener">Outlook</a>
+        </div>
+      </div>
     </div>
 
     <canvas id="soundwave" class="soundwave" aria-hidden="true"></canvas>
@@ -1076,6 +1149,16 @@ const CONFIG = {
   // Trong lúc đếm ngược, các nút Streaming / Download cũng bị khoá (hiện "Coming Soon").
   // Để trống "" thì không đếm ngược, mở nghe được ngay.
   releaseAt: "2026-10-30T00:00:00+07:00",
+
+  // ---- Nút "Notify me" trong khối đếm ngược: thêm lời nhắc giờ phát hành vào lịch ----
+  // Google Calendar và Outlook tự lấy giờ từ releaseAt ở trên.
+  // Apple Calendar dùng file .ics tĩnh (iPhone chỉ mở thẳng vào Lịch khi là file thật trên web),
+  // nên NẾU ĐỔI releaseAt thì phải sửa giờ trong file assets/ftloml.ics cho khớp.
+  reminder: {
+    ics: "assets/ftloml.ics",
+    url: "https://tuanle0210.github.io/ftloml/", // link trang, ghi vào nội dung lời nhắc
+    minutes: 30,                                 // độ dài sự kiện trên lịch (phút)
+  },
 
   album: {
     title: "For the Loves of My Lives",
@@ -2116,6 +2199,50 @@ function unlockPlayer() {
   startSoundwave();
 }
 
+// ---------- Nút "Notify me": đặt lời nhắc giờ phát hành vào lịch ----------
+function setupNotify() {
+  const btn = document.getElementById('notify-btn');
+  const menu = document.getElementById('notify-menu');
+  const r = CONFIG.reminder || {};
+  const start = new Date(releaseTime);
+  const end = new Date(releaseTime + (r.minutes || 30) * 60000);
+  const pageUrl = r.url || location.href.split('#')[0];
+  const title = '\u201C' + CONFIG.album.title + '\u201D by ' + CONFIG.album.artist + ' is out';
+  const details = 'Listen now: ' + pageUrl;
+  const compact = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, ''); // 20261029T170000Z
+  const iso = d => d.toISOString().replace(/\.\d{3}/, '');                          // 2026-10-29T17:00:00Z
+  const q = o => Object.keys(o).map(k => k + '=' + encodeURIComponent(o[k])).join('&');
+
+  document.getElementById('notify-google').href = 'https://calendar.google.com/calendar/render?' + q({
+    action: 'TEMPLATE', text: title, details: details,
+  }) + '&dates=' + compact(start) + '/' + compact(end);
+  document.getElementById('notify-outlook').href = 'https://outlook.live.com/calendar/0/deeplink/compose?' + q({
+    path: '/calendar/action/compose', rru: 'addevent', subject: title,
+    startdt: iso(start), enddt: iso(end), body: details,
+  });
+  const apple = document.getElementById('notify-apple');
+  if (r.ics) apple.href = r.ics; else apple.remove();
+
+  const setOpen = (open) => {
+    menu.hidden = !open;
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (!open) return;
+    // Mở xuống dưới; nếu bị tràn khỏi màn hình thì lật lên trên
+    menu.classList.remove('up');
+    if (menu.getBoundingClientRect().bottom > window.innerHeight - 8) menu.classList.add('up');
+  };
+  btn.addEventListener('click', () => setOpen(menu.hidden));
+  // Chọn xong một lịch thì đóng menu
+  menu.addEventListener('click', e => { if (e.target.closest('a')) setTimeout(() => setOpen(false), 0); });
+  // Bấm ra ngoài / nhấn Esc thì đóng
+  document.addEventListener('pointerdown', e => {
+    if (!menu.hidden && !e.target.closest('.notify')) setOpen(false);
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !menu.hidden) { setOpen(false); btn.focus(); }
+  });
+}
+
 if (isLocked) {
   root.classList.add('locked');
   const pad = n => String(n).padStart(2, '0');
@@ -2144,6 +2271,7 @@ if (isLocked) {
   };
   tick();
   countdownTimer = setInterval(tick, 1000);
+  setupNotify();
 } else {
   audio.src = CONFIG.audio.src;
 }
@@ -2677,6 +2805,7 @@ audio.addEventListener('ended', () => {
 document.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.repeat) return; // giữ phím không bị bật/tắt hay chuyển bài liên tục
+  if (isLocked) return; // đang đếm ngược: chưa có nhạc, phím tắt không làm gì (tránh đổi ngầm vị trí bắt đầu)
   const t = e.target;
   // Đang gõ chữ thì để trình duyệt xử lý bình thường. Thanh tiến trình (range) KHÔNG
   // nằm trong danh sách này: trước đây sau khi dùng chuột kéo thanh, focus kẹt lại ở đó
