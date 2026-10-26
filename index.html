@@ -1783,6 +1783,9 @@ Art Director/Designer: Le Anh Tuan
   // cho từng nút thì chỉ cần báo Claude bật lại, không cần gõ tay từ đầu.
   // icon: đường dẫn icon (để trống "" nếu muốn ẩn icon).
   // url: ĐIỀN LINK THẬT của bài hát/album trên từng nền tảng.
+  // Chữ nhỏ hiện dưới tên các nút Streaming khi chưa có link thật.
+  // Điền link thật vào url là dòng chữ này tự ẩn đi, nút sáng lên bấm được.
+  streamingSoonText: "Out on 11/11/2026",
   streaming: [
     {
       name: "Apple Music",
@@ -2925,6 +2928,8 @@ streamingList.textContent = '';
 allButtons.forEach(item => {
   const a = document.createElement('a');
   const soon = isPlaceholder(item.url) || isLocked; // chưa tới giờ phát hành -> khoá luôn
+  // Nút Streaming dùng dòng chữ riêng (vd. "Out on 11/11/2026"); nút Download giữ "Coming Soon"
+  const isStreaming = item !== CONFIG.download;
   if (soon) {
     a.className = 'soon';
     a.setAttribute('aria-disabled', 'true');
@@ -2944,7 +2949,7 @@ allButtons.forEach(item => {
   span.textContent = item.name;
   if (soon) {
     const note = document.createElement('small');
-    note.textContent = SOON_TEXT;
+    note.textContent = (isStreaming && CONFIG.streamingSoonText) || SOON_TEXT;
     span.appendChild(note);
   }
   a.appendChild(span);
