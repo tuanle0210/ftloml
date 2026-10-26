@@ -631,6 +631,13 @@
     font-size: 0.85rem;
     color: var(--text-soft);
   }
+  .countdown-streaming {
+    margin-top: 4px;
+    font-size: 0.78rem;
+    color: var(--text-soft);
+    opacity: 0.85;
+  }
+  .countdown-streaming[hidden] { display: none; }
   /* ---------- Nút "Notify me" trong khối đếm ngược ----------
      Bấm vào mở danh sách lịch (Google / Apple / Outlook) để đặt lời nhắc giờ phát hành.
      Cùng kiểu nút viền hồng với nút Lyrics/Credits. */
@@ -1085,6 +1092,7 @@
         <div class="countdown-unit"><span class="countdown-num" id="cd-secs">00</span><span class="countdown-name">Seconds</span></div>
       </div>
       <div class="countdown-date" id="cd-date"></div>
+      <div class="countdown-streaming" id="cd-streaming" hidden></div>
       <div class="notify">
         <button class="notify-btn" id="notify-btn" type="button" aria-expanded="false" aria-controls="notify-menu">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
@@ -1783,9 +1791,11 @@ Art Director/Designer: Le Anh Tuan
   // cho từng nút thì chỉ cần báo Claude bật lại, không cần gõ tay từ đầu.
   // icon: đường dẫn icon (để trống "" nếu muốn ẩn icon).
   // url: ĐIỀN LINK THẬT của bài hát/album trên từng nền tảng.
-  // Chữ nhỏ hiện dưới tên các nút Streaming khi chưa có link thật.
-  // Điền link thật vào url là dòng chữ này tự ẩn đi, nút sáng lên bấm được.
-  streamingSoonText: "Out on 11/11/2026",
+  // Ngày album lên các nền tảng Streaming.
+  // - Trong lúc đếm ngược: hiện 1 dòng duy nhất trong khung đếm ngược, các nút chỉ mờ đi.
+  // - Sau giờ phát hành: nút nào chưa có link thật sẽ hiện "Out on <ngày>" dưới tên.
+  // Điền link thật vào url là nút tự sáng lên bấm được. Để trống "" thì không hiện dòng nào.
+  streamingDate: "November 11, 2026",
   streaming: [
     {
       name: "Apple Music",
@@ -2264,6 +2274,11 @@ if (isLocked) {
       d.toLocaleDateString('en-US', { ...tz, month: 'long', day: 'numeric', year: 'numeric' }) + ' · ' +
       d.toLocaleTimeString('en-US', { ...tz, hour: 'numeric', minute: '2-digit' }) + ' (GMT+7)';
   } catch (e) {}
+  if (CONFIG.streamingDate) {
+    const line = document.getElementById('cd-streaming');
+    line.textContent = 'On streaming platforms ' + CONFIG.streamingDate;
+    line.hidden = false;
+  }
   const tick = () => {
     const left = Math.max(0, Math.ceil((releaseTime - Date.now()) / 1000));
     cd.d.textContent = pad(Math.floor(left / 86400));
@@ -2928,8 +2943,11 @@ streamingList.textContent = '';
 allButtons.forEach(item => {
   const a = document.createElement('a');
   const soon = isPlaceholder(item.url) || isLocked; // chưa tới giờ phát hành -> khoá luôn
-  // Nút Streaming dùng dòng chữ riêng (vd. "Out on 11/11/2026"); nút Download giữ "Coming Soon"
+  // Đang đếm ngược: các nút chỉ mờ đi, không ghi chú (ngày đã có trong khung đếm ngược).
+  // Sau giờ phát hành: nút Streaming chưa có link ghi "Out on <ngày>", Download ghi "Coming Soon".
   const isStreaming = item !== CONFIG.download;
+  const noteText = isLocked ? '' :
+    (isStreaming && CONFIG.streamingDate) ? 'Out on ' + CONFIG.streamingDate : SOON_TEXT;
   if (soon) {
     a.className = 'soon';
     a.setAttribute('aria-disabled', 'true');
@@ -2947,9 +2965,9 @@ allButtons.forEach(item => {
   }
   const span = document.createElement('span');
   span.textContent = item.name;
-  if (soon) {
+  if (soon && noteText) {
     const note = document.createElement('small');
-    note.textContent = (isStreaming && CONFIG.streamingSoonText) || SOON_TEXT;
+    note.textContent = noteText;
     span.appendChild(note);
   }
   a.appendChild(span);
