@@ -4,10 +4,10 @@ PRODID:-//Tuan Le//For the Loves of My Lives//EN
 CALSCALE:GREGORIAN
 METHOD:PUBLISH
 BEGIN:VEVENT
-UID:ftloml-release-20261030@tuanle0210.github.io
-DTSTAMP:20261022T000000Z
-DTSTART:20261029T170000Z
-DTEND:20261029T173000Z
+UID:ftloml-release-20261031@tuanle0210.github.io
+DTSTAMP:20261026T000000Z
+DTSTART:20261030T170000Z
+DTEND:20261030T173000Z
 SUMMARY:“For the Loves of My Lives” by Tuan Le is out
 DESCRIPTION:Listen now: https://tuanle0210.github.io/ftloml/
 URL:https://tuanle0210.github.io/ftloml/

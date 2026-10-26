@@ -638,6 +638,11 @@
     opacity: 0.85;
   }
   .countdown-streaming[hidden] { display: none; }
+  /* Ngày phát hành / ngày lên streaming: nổi bật bằng màu hồng + chữ đậm */
+  .cd-hl {
+    color: var(--accent-ink);
+    font-weight: 700;
+  }
   /* ---------- Nút "Notify me" trong khối đếm ngược ----------
      Bấm vào mở danh sách lịch (Google / Apple / Outlook) để đặt lời nhắc giờ phát hành.
      Cùng kiểu nút viền hồng với nút Lyrics/Credits. */
@@ -1156,7 +1161,7 @@ const CONFIG = {
   // Ví dụ 0h ngày 30/10/2026: "2026-10-30T00:00:00+07:00"
   // Trong lúc đếm ngược, các nút Streaming / Download cũng bị khoá (hiện "Coming Soon").
   // Để trống "" thì không đếm ngược, mở nghe được ngay.
-  releaseAt: "2026-10-30T00:00:00+07:00",
+  releaseAt: "2026-10-31T00:00:00+07:00",
 
   // ---- Nút "Notify me" trong khối đếm ngược: thêm lời nhắc giờ phát hành vào lịch ----
   // Google Calendar và Outlook tự lấy giờ từ releaseAt ở trên.
@@ -2270,13 +2275,21 @@ if (isLocked) {
     // Vd: "October 30, 2026 · 12:00 AM (GMT+7)"
     const tz = { timeZone: 'Asia/Ho_Chi_Minh' };
     const d = new Date(releaseTime);
-    document.getElementById('cd-date').textContent =
-      d.toLocaleDateString('en-US', { ...tz, month: 'long', day: 'numeric', year: 'numeric' }) + ' · ' +
-      d.toLocaleTimeString('en-US', { ...tz, hour: 'numeric', minute: '2-digit' }) + ' (GMT+7)';
+    const dateEl = document.getElementById('cd-date');
+    const dateHl = document.createElement('span');
+    dateHl.className = 'cd-hl';
+    dateHl.textContent = d.toLocaleDateString('en-US', { ...tz, month: 'long', day: 'numeric', year: 'numeric' });
+    dateEl.textContent = '';
+    dateEl.append(dateHl, ' · ' +
+      d.toLocaleTimeString('en-US', { ...tz, hour: 'numeric', minute: '2-digit' }) + ' (GMT+7)');
   } catch (e) {}
   if (CONFIG.streamingDate) {
     const line = document.getElementById('cd-streaming');
-    line.textContent = 'On streaming platforms ' + CONFIG.streamingDate;
+    const streamHl = document.createElement('span');
+    streamHl.className = 'cd-hl';
+    streamHl.textContent = CONFIG.streamingDate;
+    line.textContent = '';
+    line.append('On streaming platforms ', streamHl);
     line.hidden = false;
   }
   const tick = () => {
