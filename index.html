@@ -644,7 +644,9 @@
     font-weight: 700;
   }
   /* ---------- Nút "Notify me" trong khối đếm ngược ----------
-     Bấm vào mở danh sách lịch (Google / Apple / Outlook) để đặt lời nhắc giờ phát hành.
+     Bấm vào mở menu lịch để đặt lời nhắc cho CẢ 2 NGÀY: ngày phát hành và ngày lên streaming.
+       Apple Calendar: 1 lần bấm thêm cả 2 sự kiện (file .ics chứa 2 sự kiện).
+       Google / Outlook: mỗi link chỉ tạo được 1 sự kiện, nên mỗi dòng có 2 nút ngày riêng.
      Cùng kiểu nút viền hồng với nút Lyrics/Credits. */
   .notify { position: relative; margin-top: 16px; }
   .notify-btn {
@@ -675,7 +677,8 @@
     z-index: 20;
     display: flex;
     flex-direction: column;
-    min-width: 200px;
+    gap: 2px;
+    min-width: 250px;
     padding: 6px;
     background: var(--card-bg);
     border: 1.5px solid var(--border-soft);
@@ -686,9 +689,13 @@
   .notify-menu[hidden] { display: none; }
   /* Không đủ chỗ phía dưới (vd. điện thoại xoay ngang) thì mở lên trên */
   .notify-menu.up { top: auto; bottom: calc(100% + 8px); }
-  .notify-menu a {
-    display: block;
-    padding: 10px 12px;
+  /* Mỗi dòng: tên lịch bên trái, nút ngày bên phải */
+  .notify-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 6px 6px 12px;
     border-radius: 9px;
     color: var(--text);
     text-decoration: none;
@@ -696,9 +703,30 @@
     font-weight: 600;
     white-space: nowrap;
   }
-  .notify-menu a:hover, .notify-menu a:focus-visible {
+  a.notify-row:hover, a.notify-row:focus-visible {
     background: var(--track-btn-bg);
     outline: none;
+  }
+  .notify-dates { display: flex; gap: 6px; }
+  /* Nút ngày nhỏ (Oct 31 / Nov 11), hoặc nhãn "Both dates" ở dòng Apple */
+  .notify-date {
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1.5px solid var(--accent);
+    color: var(--accent-ink);
+    text-decoration: none;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+  a.notify-date:hover, a.notify-date:focus-visible {
+    background: var(--accent);
+    color: var(--accent-contrast);
+    outline: none;
+  }
+  a.notify-row .notify-date { pointer-events: none; } /* nhãn trong dòng Apple: bấm cả dòng */
+  a.notify-row:hover .notify-date {
+    background: var(--accent);
+    color: var(--accent-contrast);
   }
 
   @container (min-width: 480px) {
@@ -1104,9 +1132,19 @@
           <span>Notify me</span>
         </button>
         <div class="notify-menu" id="notify-menu" hidden>
-          <a id="notify-google" target="_blank" rel="noopener">Google Calendar</a>
-          <a id="notify-apple">Apple Calendar</a>
-          <a id="notify-outlook" target="_blank" rel="noopener">Outlook</a>
+          <a class="notify-row" id="notify-apple">Apple Calendar <span class="notify-date">Both dates</span></a>
+          <div class="notify-row">Google Calendar
+            <span class="notify-dates">
+              <a class="notify-date" id="notify-google-release" target="_blank" rel="noopener"></a>
+              <a class="notify-date" id="notify-google-streaming" target="_blank" rel="noopener"></a>
+            </span>
+          </div>
+          <div class="notify-row">Outlook
+            <span class="notify-dates">
+              <a class="notify-date" id="notify-outlook-release" target="_blank" rel="noopener"></a>
+              <a class="notify-date" id="notify-outlook-streaming" target="_blank" rel="noopener"></a>
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -1163,10 +1201,12 @@ const CONFIG = {
   // Để trống "" thì không đếm ngược, mở nghe được ngay.
   releaseAt: "2026-10-31T00:00:00+07:00",
 
-  // ---- Nút "Notify me" trong khối đếm ngược: thêm lời nhắc giờ phát hành vào lịch ----
-  // Google Calendar và Outlook tự lấy giờ từ releaseAt ở trên.
-  // Apple Calendar dùng file .ics tĩnh (iPhone chỉ mở thẳng vào Lịch khi là file thật trên web),
-  // nên NẾU ĐỔI releaseAt thì phải sửa giờ trong file assets/ftloml.ics cho khớp.
+  // ---- Nút "Notify me" trong khối đếm ngược: thêm lời nhắc vào lịch cho CẢ 2 NGÀY ----
+  // Ngày phát hành lấy từ releaseAt ở trên, ngày lên streaming lấy từ streamingAt bên dưới.
+  // Google Calendar và Outlook tự lấy giờ từ 2 mốc này.
+  // Apple Calendar dùng file .ics tĩnh chứa sẵn 2 sự kiện (iPhone chỉ mở thẳng vào Lịch khi là
+  // file thật trên web), nên NẾU ĐỔI releaseAt / streamingAt thì phải sửa giờ trong file
+  // assets/ftloml.ics cho khớp.
   reminder: {
     ics: "assets/ftloml.ics",
     url: "https://tuanle0210.github.io/ftloml/", // link trang, ghi vào nội dung lời nhắc
@@ -1801,6 +1841,9 @@ Art Director/Designer: Le Anh Tuan
   // - Sau giờ phát hành: nút nào chưa có link thật sẽ hiện "Out on <ngày>" dưới tên.
   // Điền link thật vào url là nút tự sáng lên bấm được. Để trống "" thì không hiện dòng nào.
   streamingDate: "November 11, 2026",
+  // Giờ album lên các nền tảng Streaming, dùng cho lời nhắc thứ 2 của nút "Notify me".
+  // Cùng định dạng với releaseAt. Để trống "" thì nút chỉ nhắc ngày phát hành.
+  streamingAt: "2026-11-11T00:00:00+07:00",
   streaming: [
     {
       name: "Apple Music",
@@ -2217,29 +2260,64 @@ function unlockPlayer() {
   startSoundwave();
 }
 
-// ---------- Nút "Notify me": đặt lời nhắc giờ phát hành vào lịch ----------
+// ---------- Nút "Notify me": đặt lời nhắc vào lịch cho ngày phát hành + ngày lên streaming ----------
 function setupNotify() {
   const btn = document.getElementById('notify-btn');
   const menu = document.getElementById('notify-menu');
   const r = CONFIG.reminder || {};
-  const start = new Date(releaseTime);
-  const end = new Date(releaseTime + (r.minutes || 30) * 60000);
   const pageUrl = r.url || location.href.split('#')[0];
-  const title = '\u201C' + CONFIG.album.title + '\u201D by ' + CONFIG.album.artist + ' is out';
-  const details = 'Listen now: ' + pageUrl;
-  const compact = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, ''); // 20261029T170000Z
-  const iso = d => d.toISOString().replace(/\.\d{3}/, '');                          // 2026-10-29T17:00:00Z
+  const albumName = '\u201C' + CONFIG.album.title + '\u201D by ' + CONFIG.album.artist;
+  const compact = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, ''); // 20261030T170000Z
+  const iso = d => d.toISOString().replace(/\.\d{3}/, '');                          // 2026-10-30T17:00:00Z
   const q = o => Object.keys(o).map(k => k + '=' + encodeURIComponent(o[k])).join('&');
+  // Nhãn ngắn trên nút ngày, theo giờ Việt Nam. Vd: "Oct 31"
+  const shortDate = d => {
+    try { return d.toLocaleDateString('en-US', { timeZone: 'Asia/Ho_Chi_Minh', month: 'short', day: 'numeric' }); }
+    catch (e) { return d.toDateString().slice(4, 10); }
+  };
 
-  document.getElementById('notify-google').href = 'https://calendar.google.com/calendar/render?' + q({
-    action: 'TEMPLATE', text: title, details: details,
-  }) + '&dates=' + compact(start) + '/' + compact(end);
-  document.getElementById('notify-outlook').href = 'https://outlook.live.com/calendar/0/deeplink/compose?' + q({
-    path: '/calendar/action/compose', rru: 'addevent', subject: title,
-    startdt: iso(start), enddt: iso(end), body: details,
+  const streamingTime = CONFIG.streamingAt ? new Date(CONFIG.streamingAt).getTime() : NaN;
+  const events = {
+    release: {
+      time: releaseTime,
+      title: albumName + ' is out',
+      details: 'Listen now: ' + pageUrl,
+    },
+    streaming: {
+      time: streamingTime,
+      title: albumName + ' is on streaming platforms',
+      details: 'Out now on Apple Music, Spotify and YouTube: ' + pageUrl,
+    },
+  };
+
+  Object.keys(events).forEach(key => {
+    const ev = events[key];
+    const g = document.getElementById('notify-google-' + key);
+    const o = document.getElementById('notify-outlook-' + key);
+    if (!isFinite(ev.time)) { g.remove(); o.remove(); return; } // chưa có ngày -> ẩn nút
+    const start = new Date(ev.time);
+    const end = new Date(ev.time + (r.minutes || 30) * 60000);
+    const label = shortDate(start);
+    g.textContent = o.textContent = label;
+    const aria = ' reminder: ' + ev.title + ', ' + label;
+    g.setAttribute('aria-label', 'Google Calendar' + aria);
+    o.setAttribute('aria-label', 'Outlook' + aria);
+    g.href = 'https://calendar.google.com/calendar/render?' + q({
+      action: 'TEMPLATE', text: ev.title, details: ev.details,
+    }) + '&dates=' + compact(start) + '/' + compact(end);
+    o.href = 'https://outlook.live.com/calendar/0/deeplink/compose?' + q({
+      path: '/calendar/action/compose', rru: 'addevent', subject: ev.title,
+      startdt: iso(start), enddt: iso(end), body: ev.details,
+    });
   });
+
   const apple = document.getElementById('notify-apple');
-  if (r.ics) apple.href = r.ics; else apple.remove();
+  if (r.ics) {
+    apple.href = r.ics;
+    if (!isFinite(streamingTime)) apple.querySelector('.notify-date').remove();
+  } else {
+    apple.remove();
+  }
 
   const setOpen = (open) => {
     menu.hidden = !open;

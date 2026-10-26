@@ -8,12 +8,26 @@ UID:ftloml-release-20261031@tuanle0210.github.io
 DTSTAMP:20261026T000000Z
 DTSTART:20261030T170000Z
 DTEND:20261030T173000Z
-SUMMARY:“For the Loves of My Lives” by Tuan Le is out
+SUMMARY:"For the Loves of My Lives" by Tuan Le is out
 DESCRIPTION:Listen now: https://tuanle0210.github.io/ftloml/
 URL:https://tuanle0210.github.io/ftloml/
 BEGIN:VALARM
 ACTION:DISPLAY
-DESCRIPTION:For the Loves of My Lives is out now
+DESCRIPTION:"For the Loves of My Lives" by Tuan Le is out
+TRIGGER:PT0M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:ftloml-streaming-20261111@tuanle0210.github.io
+DTSTAMP:20261026T000000Z
+DTSTART:20261110T170000Z
+DTEND:20261110T173000Z
+SUMMARY:"For the Loves of My Lives" by Tuan Le is on streaming platforms
+DESCRIPTION:Out now on Apple Music\, Spotify and YouTube: https://tuanle0210.github.io/ftloml/
+URL:https://tuanle0210.github.io/ftloml/
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:"For the Loves of My Lives" is on streaming platforms
 TRIGGER:PT0M
 END:VALARM
 END:VEVENT
