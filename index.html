@@ -810,16 +810,23 @@
     opacity: 0.85;
   }
 
-  /* ---------- Social icons cuối trang ---------- */
+  /* ---------- Social icons đầu trang ----------
+     Nằm trong khoảng trống phía trên ảnh bìa (padding-top của .first-screen),
+     không chiếm chỗ nên màn hình đầu vẫn vừa khít 1 màn hình. */
   .socials {
-    margin-top: 28px;
+    position: absolute;
+    top: calc(env(safe-area-inset-top, 0px) + 12px);
+    left: 0;
+    right: 0;
+    z-index: 2;
+    margin: 0;
     display: flex;
     justify-content: center;
-    gap: 14px;
+    gap: 12px;
   }
   .socials a {
-    width: 46px;
-    height: 46px;
+    width: 40px;
+    height: 40px;
     border-radius: 12px;
     background: var(--card-bg);
     display: flex;
@@ -828,8 +835,8 @@
     box-shadow: 0 4px 14px rgba(0,0,0,0.12);
   }
   .socials a img {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
     display: block;
   }
   /* ---------- Điện thoại xoay ngang ----------
@@ -854,7 +861,7 @@
       height: 100dvh !important;
       min-height: 0;
       max-height: none !important;
-      padding-top: calc(env(safe-area-inset-top, 0px) + 16px);
+      padding-top: calc(env(safe-area-inset-top, 0px) + 58px); /* chừa chỗ cho icon Social ở trên */
       padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
     }
     .cover-wrap {
@@ -924,18 +931,20 @@
        các nút Streaming (cuộn xuống mới thấy) */
     .cta-static { margin: 4px auto 0; } /* sát dưới màn hình đầu (đã có 16px lề dưới) */
     .streaming { margin-top: 16px; }
-    .streaming, .socials {
+    .streaming {
       max-width: 480px;
       margin-left: auto;
       margin-right: auto;
     }
+    .socials { top: calc(env(safe-area-inset-top, 0px) + 10px); }
+    .socials a { width: 38px; height: 38px; }
   }
   /* ---------- Máy tính ----------
-     Cả trang là 1 khung cố định 1148×625 (DESK_W × DESK_H trong script), phóng to / thu nhỏ
+     Cả trang là 1 khung cố định 1148×650 (DESK_W × DESK_H trong script), phóng to / thu nhỏ
      bằng zoom cho vừa cửa sổ, căn giữa màn hình, không cuộn.
        cột trái : ảnh bìa lớn, tên album + nghệ sĩ bên dưới
        cột phải : player → Streaming (2 cột, Download ở giữa), cao đúng bằng ảnh bìa
-       dưới cùng: icon Social
+       trên cùng: icon Social
      Nút Stream & Download ẩn trên máy tính (không cần cuộn nữa).
      min-height: 521px để không ảnh hưởng điện thoại xoay ngang. */
   @media (orientation: landscape) and (min-width: 900px) and (min-height: 521px) {
@@ -948,13 +957,13 @@
       zoom: var(--desk-zoom, 1);
       width: 1148px;
       max-width: none;
-      height: 625px;
+      height: 650px;
       box-sizing: border-box;
       padding: 0 !important;
       display: grid;
       grid-template-columns: 480px 640px;
-      /* hàng 1 + 2 = 302 + 178 = 480px = đúng chiều cao ảnh bìa */
-      grid-template-rows: 302px 178px auto 1fr;
+      /* hàng 1: icon Social | hàng 2 + 3 = 302 + 178 = 480px = đúng chiều cao ảnh bìa */
+      grid-template-rows: 70px 302px 178px auto;
       column-gap: 28px;
     }
     /* Bỏ khung màn hình đầu: các phần bên trong xếp thẳng vào lưới của trang */
@@ -963,13 +972,13 @@
     /* Cột trái: ảnh bìa (hàng 1–2), tên album + nghệ sĩ ngay bên dưới (hàng 3) */
     .cover-wrap {
       grid-column: 1;
-      grid-row: 1 / 3;
+      grid-row: 2 / 4;
       width: 480px;
       height: 480px;
     }
     .album-info {
       grid-column: 1;
-      grid-row: 3;
+      grid-row: 4;
       margin: 16px 0 0;
     }
     .album-info h1 { font-size: 1.7rem; }
@@ -978,7 +987,7 @@
     /* Cột phải */
     .player {
       grid-column: 2;
-      grid-row: 1;
+      grid-row: 2;
       height: 302px !important;
       max-width: none;
       padding: 18px 22px 20px;
@@ -1005,7 +1014,7 @@
     /* 14px khoảng cách + 3 hàng nút 48px + 2 khe 10px = 178px (đáy nút Download = đáy ảnh bìa) */
     .streaming {
       grid-column: 2;
-      grid-row: 2;
+      grid-row: 3;
       align-self: end;
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -1026,14 +1035,17 @@
       grid-column: 1 / -1;
     }
 
-    /* Dưới cùng, giữa trang */
+    /* Trên cùng, giữa trang */
     .socials {
+      position: static;
       grid-column: 1 / -1;
-      grid-row: 4;
-      align-self: end;
+      grid-row: 1;
+      align-self: start;
       margin: 0;
       max-width: none;
     }
+    .socials a { width: 46px; height: 46px; }
+    .socials a img { width: 22px; height: 22px; }
   }
   @media (prefers-reduced-motion: reduce) {
     .player, .streaming { transition: none !important; }
@@ -1071,8 +1083,11 @@
 
   /* Màn hình ngang rất thấp (vd. iPhone SE): gọn thêm một chút */
   @media (orientation: landscape) and (max-height: 340px) {
+    .socials { top: calc(env(safe-area-inset-top, 0px) + 8px); }
+    .socials a { width: 34px; height: 34px; }
+    .socials a img { width: 18px; height: 18px; }
     .first-screen {
-      padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
+      padding-top: calc(env(safe-area-inset-top, 0px) + 50px);
       padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
     }
     .player { padding: 10px 12px 12px; }
@@ -1095,6 +1110,8 @@
 <div class="bg-overlay"></div>
 
 <div class="page">
+
+  <nav class="socials" id="socials-list" aria-label="Social"></nav>
 
   <div class="first-screen">
 
@@ -1180,8 +1197,6 @@
   </div>
 
   <div class="streaming" id="streaming-list"></div>
-
-  <div class="socials" id="socials-list"></div>
 
 </div>
 
@@ -2680,7 +2695,7 @@ const landscapeMQ = window.matchMedia(LANDSCAPE_QUERY);
 // ---------- Máy tính: phóng to khung màn hình đầu cho vừa cửa sổ ----------
 // Phải khớp với khối "Máy tính" trong CSS
 const DESKTOP_QUERY = '(orientation: landscape) and (min-width: 900px) and (min-height: 521px)';
-const DESK_W = 1148, DESK_H = 625;   // kích thước khung cả trang (khớp khối "Máy tính" trong CSS)
+const DESK_W = 1148, DESK_H = 650;   // kích thước khung cả trang (khớp khối "Máy tính" trong CSS)
 // Tổng lề trái+phải / trên+dưới chừa quanh khung: bằng 12% cửa sổ, tối thiểu 48px, tối đa
 // 240px (ngang) / 160px (dọc). Màn hình lớn lề rộng cho dễ thở; màn hình nhỏ (laptop nhỏ,
 // iPad xoay ngang) lề hẹp lại để chữ và nút không bị thu nhỏ quá mức.
@@ -3066,7 +3081,7 @@ allButtons.forEach(item => {
 });}
 renderLinks();
 
-// ---------- Render Social icons cuối trang ----------
+// ---------- Render Social icons đầu trang ----------
 const socialsList = document.getElementById('socials-list');
 
 function addSocial(href, iconSrc, label) {
