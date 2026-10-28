@@ -150,7 +150,7 @@
     box-sizing: border-box;
     min-height: 100vh;
     min-height: 100svh;
-    padding-top: calc(env(safe-area-inset-top, 0px) + 64px); /* tăng số này nếu muốn hạ ảnh bìa xuống thêm */
+    padding-top: calc(env(safe-area-inset-top, 0px) + 74px); /* chừa chỗ cho icon Social; tăng số này nếu muốn hạ ảnh bìa xuống thêm */
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
   }
   /* Đang mở Lyrics / Credits: cho khung dài ra tự nhiên, ảnh bìa đứng yên */
@@ -817,20 +817,20 @@
      rê chuột / bấm vào thì hiện màu thật của từng mạng xã hội. */
   .socials {
     position: absolute;
-    top: calc(env(safe-area-inset-top, 0px) + 12px);
+    top: calc(env(safe-area-inset-top, 0px) + 10px);
     left: 0;
     right: 0;
     width: fit-content;
     margin: 0 auto;
     z-index: 2;
     display: flex;
-    gap: 2px;
+    gap: 4px;
     padding: 4px;
     border-radius: 999px;
   }
   .socials a {
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     border-radius: 999px;
     display: flex;
     align-items: center;
@@ -840,8 +840,8 @@
     transition: transform 0.15s ease, color 0.2s ease, opacity 0.2s ease, background-color 0.2s ease;
   }
   .socials a svg {
-    width: 19px;
-    height: 19px;
+    width: 23px;
+    height: 23px;
     display: block;
   }
   .socials a:active { color: var(--brand); opacity: 1; }
@@ -942,7 +942,9 @@
       margin-left: auto;
       margin-right: auto;
     }
-    .socials { top: calc(env(safe-area-inset-top, 0px) + 10px); }
+    .socials { top: calc(env(safe-area-inset-top, 0px) + 10px); gap: 2px; }
+    .socials a { width: 36px; height: 36px; }
+    .socials a svg { width: 19px; height: 19px; }
   }
   /* ---------- Máy tính ----------
      Cả trang là 1 khung cố định 1148×650 (DESK_W × DESK_H trong script), phóng to / thu nhỏ
