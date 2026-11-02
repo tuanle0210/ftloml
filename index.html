@@ -246,8 +246,8 @@
     animation: none;
     border-radius: 50%;
     box-shadow: 0 10px 28px rgba(0,0,0,0.35);
-    mask-image: radial-gradient(circle closest-side at center, black 0%, black 13%, white 14%, white 100%);
-    -webkit-mask-image: radial-gradient(circle closest-side at center, black 0%, black 13%, white 14%, white 100%);
+    mask-image: radial-gradient(circle closest-side at center, transparent 0 36%, #000 36.4%);
+    -webkit-mask-image: radial-gradient(circle closest-side at center, transparent 0 36%, #000 36.4%);
   }
   /* Ảnh đĩa đã được JS làm nhòe theo chiều quay; độ hiện (opacity) do JS chỉnh
      theo tốc độ quay: quay càng nhanh càng nhòe. */
@@ -257,8 +257,8 @@
     border-radius: 50%;
     background-size: cover;
     background-position: center;
-    mask-image: radial-gradient(circle closest-side at center, black 0%, black 13%, white 14%, white 100%);
-    -webkit-mask-image: radial-gradient(circle closest-side at center, black 0%, black 13%, white 14%, white 100%);
+    mask-image: radial-gradient(circle closest-side at center, transparent 0 36%, #000 36.4%);
+    -webkit-mask-image: radial-gradient(circle closest-side at center, transparent 0 36%, #000 36.4%);
     opacity: 0;
     pointer-events: none;
   }
@@ -275,15 +275,55 @@
       repeating-radial-gradient(circle at center,
         rgba(255,255,255,0.05) 0 1px, transparent 1px 3px);
     mix-blend-mode: soft-light;
-    mask-image: radial-gradient(circle closest-side at center, black 0%, black 13%, white 14%, white 100%);
-    -webkit-mask-image: radial-gradient(circle closest-side at center, black 0%, black 13%, white 14%, white 100%);
+    mask-image: radial-gradient(circle closest-side at center, transparent 0 36%, #000 36.4%);
+    -webkit-mask-image: radial-gradient(circle closest-side at center, transparent 0 36%, #000 36.4%);
     opacity: 0;
     transition: opacity 0.6s ease;
   }
   .cover-disc.spin-blur .cover-sheen { opacity: 1; }
-  .cd .cover-ring,
-  .cd .cover-hole {
-    transform: translate(-50%, -50%) scale(1);
+  /* Vùng giữa đĩa giống CD thật (tính theo bán kính đĩa):
+       0–12.5%  : lỗ thủng, nhìn xuyên qua thấy nền phía sau
+       12.5–28% : vành nhựa trong suốt, hơi mờ, có gờ xếp chồng ở ~26%
+       28–36%   : dải bạc ánh kim (mặt gương của đĩa, chưa in hình)
+       từ 36%   : phần in hình (ảnh CD.webp)
+     Lớp này đứng yên, không xoay theo đĩa: vành tròn đều nên xoay hay không nhìn
+     như nhau, còn ánh phản chiếu trên dải bạc thì phải đứng yên như dưới đèn thật. */
+  .cd-hub {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    pointer-events: none;
+    background:
+      radial-gradient(circle closest-side at center,
+        transparent 0 12.2%,
+        rgba(255,255,255,0.55) 12.5%, rgba(0,0,0,0.22) 13.1%, transparent 13.6%,
+        transparent 15.6%, rgba(255,255,255,0.18) 16%, transparent 16.5%,
+        transparent 25.4%, rgba(255,255,255,0.45) 25.9%, rgba(0,0,0,0.18) 26.6%, transparent 27.2%,
+        transparent 27.8%, rgba(0,0,0,0.20) 28.1%, transparent 28.5%,
+        transparent 35.6%, rgba(0,0,0,0.22) 36%, transparent 36.5%),
+      radial-gradient(circle closest-side at center,
+        transparent 0 12.5%, rgba(255,255,255,0.14) 12.6% 28%, transparent 28.1%);
+    backdrop-filter: blur(3px) saturate(1.15);
+    -webkit-backdrop-filter: blur(3px) saturate(1.15);
+    mask-image: radial-gradient(circle closest-side at center, transparent 0 12.5%, #000 12.7% 36.2%, transparent 36.5%);
+    -webkit-mask-image: radial-gradient(circle closest-side at center, transparent 0 12.5%, #000 12.7% 36.2%, transparent 36.5%);
+  }
+  /* Dải bạc ánh kim + chút cầu vồng như mặt gương CD */
+  .cd-hub::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background:
+      conic-gradient(from 200deg,
+        rgba(255,120,200,0.22), rgba(120,200,255,0.22), rgba(170,255,170,0.18),
+        rgba(255,230,120,0.22), rgba(255,120,200,0.22), rgba(120,200,255,0.22),
+        rgba(170,255,170,0.18), rgba(255,230,120,0.22), rgba(255,120,200,0.22)),
+      conic-gradient(from 30deg,
+        #c9ced6, #f7f8fa 12%, #aeb4be 25%, #eef0f3 38%, #c3c8d0 50%,
+        #f8f9fb 62%, #b2b8c2 75%, #e9ecf0 88%, #c9ced6);
+    mask-image: radial-gradient(circle closest-side at center, transparent 0 28.2%, #000 28.6% 35.8%, transparent 36.1%);
+    -webkit-mask-image: radial-gradient(circle closest-side at center, transparent 0 28.2%, #000 28.6% 35.8%, transparent 36.1%);
   }
   /* Desktop (có chuột): rê vào bìa -> đĩa ló ra. Điện thoại không có hiệu ứng này.
      Vị trí/độ thu nhỏ do JS tính (--sleeve-x, --sleeve-s, --cd-x, --cd-s) để đĩa
@@ -359,6 +399,10 @@
      (2 thứ này phải vẽ lại mỗi khung hình khi đĩa quay, rất tốn GPU) */
   .lite .cover-disc img.spinning {
     filter: none;
+  }
+  .lite .cd-hub {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
   .lite .cover-ring {
     backdrop-filter: none;
@@ -1344,8 +1388,7 @@
           <div class="cover-blur"></div>
         </div>
         <div class="cover-sheen"></div>
-        <div class="cover-ring"></div>
-        <div class="cover-hole"></div>
+        <div class="cd-hub"></div>
       </div>
       <!-- Bìa album: bấm vào để phát -->
       <img id="cover-img" class="cover-sleeve" src="assets/cover.jpg" fetchpriority="high" alt="" role="button" tabindex="0" aria-label="Phát album">
