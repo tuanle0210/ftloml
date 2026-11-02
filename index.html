@@ -1415,7 +1415,7 @@
       <!-- Đĩa CD: nằm sau bìa, trượt ra khi bấm Play. Đổi ảnh đĩa ở src dưới đây -->
       <div class="cd">
         <div class="cd-spin">
-          <img id="cd-img" class="cd-img" src="assets/CD.webp" alt="">
+          <img id="cd-img" class="cd-img" src="assets/CD.webp" alt="" decoding="async" fetchpriority="low">
           <div class="cover-blur"></div>
         </div>
         <div class="cover-sheen"></div>
@@ -2873,6 +2873,12 @@ const SPIN_UP_MS = 1000;   // thời gian tăng tốc từ đứng yên tới t�
 const SPIN_DOWN_MS = 1500; // thời gian giảm tốc tới khi dừng hẳn (lúc pause)
 let spinAngle = 0, spinSpeed = 0, spinTarget = 0, spinRAF = 0, spinLast = 0;
 
+// "Cú hích": tốc độ cộng thêm khi tua / chuyển bài / kéo thanh tiến trình.
+// Dương = quay nhanh thêm, âm = quay ngược. Tự tắt dần như đĩa bị miết tay rồi thả ra.
+let spinKick = 0;
+const KICK_FADE_MS = 380;   // càng lớn thì cú hích kéo dài càng lâu
+const KICK_MAX = 3;         // giới hạn, tính theo lần tốc độ quay bình thường
+
 function spinTick(now) {
   const dt = spinLast ? Math.min(50, now - spinLast) : 0;
   spinLast = now;
@@ -2880,14 +2886,25 @@ function spinTick(now) {
   spinSpeed = spinTarget > spinSpeed
     ? Math.min(spinTarget, spinSpeed + rate * dt)
     : Math.max(spinTarget, spinSpeed - rate * dt);
-  spinAngle = (spinAngle + spinSpeed * dt) % 360;
+  spinKick *= Math.exp(-dt / KICK_FADE_MS);
+  if (Math.abs(spinKick) < SPIN_MAX * 0.01) spinKick = 0;
+  const v = spinSpeed + spinKick;
+  spinAngle = ((spinAngle + v * dt) % 360 + 360) % 360;
   cdSpin.style.transform = 'rotate(' + spinAngle.toFixed(2) + 'deg)';
-  // Quay chậm: thấy rõ ảnh đĩa. Quay nhanh: lớp nhòe hiện dần, che bước nhảy giữa các khung hình
-  const k = spinSpeed / SPIN_MAX;
+  // Quay chậm: thấy rõ ảnh đĩa. Quay nhanh (xuôi hay ngược): lớp nhòe hiện dần
+  const k = Math.abs(v) / SPIN_MAX;
   const t = Math.min(Math.max((k - 0.2) / 0.6, 0), 1);
   coverBlur.style.opacity = spinBlurReady ? (t * t * (3 - 2 * t)).toFixed(3) : '0';
-  if (spinSpeed === 0 && spinTarget === 0) { spinRAF = 0; spinLast = 0; onSpinStopped(); return; }
+  if (spinSpeed === 0 && spinTarget === 0 && spinKick === 0) {
+    spinRAF = 0; spinLast = 0; onSpinStopped(); return;
+  }
   spinRAF = requestAnimationFrame(spinTick);
+}
+// Hích đĩa: amount tính theo lần tốc độ quay bình thường (âm = quay ngược)
+function kickSpin(amount) {
+  if (reduceMotionMQ.matches || !coverDiscEl.classList.contains('cd-out')) return;
+  spinKick = Math.max(-KICK_MAX * SPIN_MAX, Math.min(KICK_MAX * SPIN_MAX, spinKick + amount * SPIN_MAX));
+  if (!spinRAF) { spinLast = 0; spinRAF = requestAnimationFrame(spinTick); }
 }
 function setSpinTarget(on) {
   spinTarget = on && !reduceMotionMQ.matches ? SPIN_MAX : 0;
@@ -2987,6 +3004,33 @@ coverImg.addEventListener('click', playFromCover);
 coverImg.addEventListener('keydown', e => {
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); playFromCover(); }
 });
+// ---------- Đĩa phản ứng theo nút điều khiển ----------
+// Mọi kiểu nhảy vị trí (nút trước/sau, nút số, phím mũi tên, màn hình khoá, thả thanh
+// tiến trình) đều đi qua sự kiện 'seeking' của <audio>, nên chỉ cần bắt ở một chỗ:
+// nhảy tới -> đĩa vọt nhanh một nhịp; nhảy lùi -> đĩa quay ngược một nhịp rồi xuôi lại.
+let lastAudioTime = 0, scrubPrev = null, lastScrubAt = 0;
+audio.addEventListener('timeupdate', () => { if (!audio.seeking) lastAudioTime = audio.currentTime; });
+audio.addEventListener('seeking', () => {
+  const jump = audio.currentTime - lastAudioTime;
+  lastAudioTime = audio.currentTime;
+  if (performance.now() - lastScrubAt < 600) return; // vừa kéo thanh tiến trình: đã hích lúc kéo rồi
+  if (Math.abs(jump) < 1) return;
+  if (jump > 0) kickSpin(1.2 + Math.min(1, jump / 300));
+  else kickSpin(-(2.4 + Math.min(0.6, -jump / 300)));
+});
+// Kéo thanh tiến trình: đĩa quay theo hướng kéo, giống lấy tay xoay đĩa.
+// Kéo càng nhanh / càng xa thì đĩa quay càng mạnh.
+progress.addEventListener('input', () => {
+  const t = (progress.value / 1000) * (audio.duration || 0);
+  if (scrubPrev === null) scrubPrev = audio.currentTime;
+  const d = t - scrubPrev;
+  scrubPrev = t;
+  lastScrubAt = performance.now();
+  if (d) kickSpin(Math.max(-1.5, Math.min(1.5, d / 25)));
+});
+progress.addEventListener('change', () => { scrubPrev = null; lastScrubAt = performance.now(); });
+progress.addEventListener('blur', () => { scrubPrev = null; });
+
 // Bấm vào đĩa: đang quay thì tạm dừng; đang giảm tốc chưa kịp cất thì phát tiếp
 cdEl.addEventListener('click', () => {
   if (!coverDiscEl.classList.contains('cd-out')) return;
