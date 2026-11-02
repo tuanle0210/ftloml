@@ -200,7 +200,7 @@
     border-radius: 20px;
     box-shadow: 0 12px 30px rgba(0,0,0,0.25);
     display: block;
-    animation: cover-spin 0.15s linear infinite;
+    animation: cover-spin 1.6s linear infinite;
     animation-play-state: paused;
     transition: border-radius 0.4s ease;
   }
@@ -213,10 +213,36 @@
        trên Chrome/Firefox (mask-image) lẫn Safari (-webkit-mask-image). */
     mask-image: radial-gradient(circle closest-side at center, black 0%, black 13%, white 14%, white 100%);
     -webkit-mask-image: radial-gradient(circle closest-side at center, black 0%, black 13%, white 14%, white 100%);
-    /* Blur nhẹ để giả lập vệt mờ do quay nhanh (motion blur), giống cảm giác nhìn
-       một cái đĩa CD thật đang chạy tít — bản thân CSS animation không tự tạo mờ,
-       nên cần cộng thêm filter này mới có cảm giác "nhòe vì quay nhanh". */
-    filter: blur(1.3px);
+  }
+  /* Lớp "đĩa đang quay tít": ảnh bìa đã được JS tính trung bình màu theo từng vòng
+     tròn đồng tâm — đúng thứ mắt nhìn thấy khi một cái đĩa thật quay quá nhanh.
+     Vì ảnh này đối xứng tròn nên không cần xoay, không bao giờ bị giật/chóng mặt. */
+  .cover-blur {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background-size: cover;
+    background-position: center;
+    mask-image: radial-gradient(circle closest-side at center, black 0%, black 13%, white 14%, white 100%);
+    -webkit-mask-image: radial-gradient(circle closest-side at center, black 0%, black 13%, white 14%, white 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+  /* Vệt phản chiếu ánh sáng đứng yên trên mặt đĩa, như CD thật dưới đèn */
+  .cover-blur::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: conic-gradient(from 20deg,
+      transparent 0deg, rgba(255,255,255,0.16) 30deg, transparent 70deg,
+      transparent 180deg, rgba(255,255,255,0.10) 210deg, transparent 250deg);
+  }
+  /* Bắt đầu phát: đĩa quay chậm vài nhịp rồi "nhòe" dần thành các vòng màu */
+  .cover-disc.spin-blur .cover-blur {
+    opacity: 1;
+    transition: opacity 0.8s ease-in 0.2s;
   }
   /* Vòng nhẫn kẹp đĩa — nằm giữa lỗ khoét thật và mặt đĩa, làm mờ (blur) đúng phần
      ảnh bìa nó đè lên, giả lập lớp nhựa mờ quanh lỗ CD thật. Bản thân vòng nhẫn
@@ -278,6 +304,7 @@
       animation: none;
       filter: none;
     }
+    .cover-blur { display: none; }
   }
 
   @keyframes cover-spin {
@@ -1243,6 +1270,7 @@
   <div class="cover-wrap">
     <div class="cover-disc">
       <img id="cover-img" src="assets/cover.jpg" fetchpriority="high" alt="">
+      <div class="cover-blur"></div>
       <div class="cover-ring"></div>
       <div class="cover-hole"></div>
     </div>
@@ -2555,7 +2583,67 @@ function updateProgressAria(time) {
 new Image().src = 'assets/icons/pause.svg'; // tải sẵn icon Pause
 
 const coverImg = document.getElementById('cover-img');
+const coverDiscEl = coverImg.parentElement;
+const coverBlur = coverDiscEl.querySelector('.cover-blur');
+let spinBlurReady = false;
+
+// Tạo ảnh "đĩa đang quay tít": lấy trung bình màu của ảnh bìa trên từng vòng tròn
+// đồng tâm (giống mắt người nhìn đĩa quay quá nhanh), rồi dùng làm nền cho .cover-blur.
+function buildSpinBlur() {
+  try {
+    const N = 256, R = N / 2;
+    const c = document.createElement('canvas');
+    c.width = c.height = N;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    const iw = coverImg.naturalWidth, ih = coverImg.naturalHeight, side = Math.min(iw, ih);
+    ctx.drawImage(coverImg, (iw - side) / 2, (ih - side) / 2, side, side, 0, 0, N, N);
+    const src = ctx.getImageData(0, 0, N, N).data;
+
+    // Cộng dồn màu theo bán kính (bình phương để trộn màu gần đúng như ánh sáng thật)
+    const sum = new Float64Array(R * 3), cnt = new Uint32Array(R);
+    for (let y = 0; y < N; y++) {
+      for (let x = 0; x < N; x++) {
+        const b = Math.floor(Math.hypot(x + 0.5 - R, y + 0.5 - R));
+        if (b >= R) continue;
+        const i = (y * N + x) * 4;
+        sum[b * 3]     += src[i] * src[i];
+        sum[b * 3 + 1] += src[i + 1] * src[i + 1];
+        sum[b * 3 + 2] += src[i + 2] * src[i + 2];
+        cnt[b]++;
+      }
+    }
+    for (let b = 0; b < R; b++) {
+      const n = cnt[b] || 1;
+      sum[b * 3] /= n; sum[b * 3 + 1] /= n; sum[b * 3 + 2] /= n;
+    }
+
+    // Vẽ lại thành các vòng tròn đồng tâm, nội suy giữa 2 vòng cho mịn
+    const out = ctx.createImageData(N, N), o = out.data;
+    for (let y = 0; y < N; y++) {
+      for (let x = 0; x < N; x++) {
+        const r = Math.min(Math.max(Math.hypot(x + 0.5 - R, y + 0.5 - R) - 0.5, 0), R - 1);
+        const b0 = Math.floor(r), b1 = Math.min(b0 + 1, R - 1), t = r - b0;
+        const i = (y * N + x) * 4;
+        for (let k = 0; k < 3; k++) {
+          o[i + k] = Math.sqrt(sum[b0 * 3 + k] * (1 - t) + sum[b1 * 3 + k] * t);
+        }
+        o[i + 3] = 255;
+      }
+    }
+    ctx.putImageData(out, 0, 0);
+    coverBlur.style.backgroundImage = 'url(' + c.toDataURL('image/jpeg', 0.92) + ')';
+    spinBlurReady = true;
+    if (coverImg.classList.contains('spinning')) coverDiscEl.classList.add('spin-blur');
+  } catch (e) {
+    // Mở file trực tiếp (file://) có thể bị trình duyệt chặn đọc pixel -> chỉ quay chậm, không nhòe
+    spinBlurReady = false;
+  }
+}
+if (coverImg.complete && coverImg.naturalWidth) buildSpinBlur();
+else coverImg.addEventListener('load', buildSpinBlur, { once: true });
+
 function setCoverSpinning(isPlaying) {
+  coverDiscEl.classList.toggle('spin-blur', isPlaying && spinBlurReady);
   if (isPlaying) {
     coverImg.classList.add('spinning');
     coverImg.style.animationPlayState = 'running';
@@ -2608,6 +2696,7 @@ audio.addEventListener('waiting', () => {
   // Đang tải nhạc (vd. vừa nhảy bài) -> chỉ tạm dừng quay, giữ nguyên hình đĩa tròn.
   // (Trước đây đĩa bị biến về hình vuông rồi lại tròn mỗi lần nhảy bài.)
   coverImg.style.animationPlayState = 'paused';
+  coverDiscEl.classList.remove('spin-blur'); // đĩa đứng yên -> hiện lại ảnh bìa rõ nét
 });
 audio.addEventListener('error', () => {
   btnPlay.classList.remove('loading');
