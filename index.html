@@ -225,6 +225,7 @@
     z-index: 2;
     animation: none;
     cursor: pointer;
+    transform-origin: left center;
     transition: opacity 0.6s ease, transform 0.7s cubic-bezier(0.22, 0.8, 0.3, 1);
   }
   .cd {
@@ -284,10 +285,17 @@
   .cd .cover-hole {
     transform: translate(-50%, -50%) scale(1);
   }
-  /* Desktop (có chuột): rê vào bìa -> đĩa ló ra. Điện thoại không có hiệu ứng này */
+  /* Desktop (có chuột): rê vào bìa -> đĩa ló ra. Điện thoại không có hiệu ứng này.
+     Vị trí/độ thu nhỏ do JS tính (--sleeve-x, --sleeve-s, --cd-x, --cd-s) để đĩa
+     không bao giờ trượt đè lên khung player bên cạnh. */
   @media (hover: hover) and (pointer: fine) {
-    .cover-disc:not(.cd-out):hover .cover-sleeve { transform: translateX(-14%); }
-    .cover-disc:not(.cd-out):hover .cd { opacity: 1; transform: translateX(32%) scale(0.94); }
+    .cover-disc:not(.cd-out):hover .cover-sleeve {
+      transform: translateX(var(--sleeve-x, -14%)) scale(var(--sleeve-s, 1));
+    }
+    .cover-disc:not(.cd-out):hover .cd {
+      opacity: 1;
+      transform: translateX(var(--cd-x, 32%)) scale(var(--cd-s, 0.94));
+    }
   }
   /* Đã bấm vào bìa: bìa tuột hẳn sang trái + mờ đi, đĩa ra giữa */
   .cover-disc.cd-out .cover-sleeve {
@@ -2815,6 +2823,42 @@ function setSpinTarget(on) {
     spinRAF = requestAnimationFrame(spinTick);
   }
 }
+
+// ---------- Desktop: tính chỗ cho đĩa ló ra khi rê chuột ----------
+// Bìa + phần đĩa ló ra phải nằm gọn giữa mép trái màn hình và khung player bên phải.
+// Thiếu chỗ thì thu nhỏ cả bìa lẫn đĩa một chút thay vì để đĩa đè lên player.
+const playerBox = document.querySelector('.player');
+const CD_PEEK = 0.26;   // phần đĩa ló ra, tính theo bề rộng bìa
+const CD_GAP = 20;      // khoảng hở tối thiểu với player / mép màn hình (px)
+function layoutCdPeek() {
+  const d = coverDiscEl.getBoundingClientRect();
+  const w = d.width;
+  if (!w) return;
+  let rightLimit = document.documentElement.clientWidth;
+  if (playerBox) {
+    const pr = playerBox.getBoundingClientRect();
+    const sameRow = pr.left >= d.right - 2 && pr.top < d.bottom && pr.bottom > d.top;
+    if (sameRow) rightLimit = pr.left;
+  }
+  const leftBound = CD_GAP;                 // được lùi sang trái tới gần sát mép màn hình
+  const rightBound = rightLimit - CD_GAP;
+  const avail = rightBound - leftBound;
+  const scale = Math.min(1, avail / ((1 + CD_PEEK) * w));
+  const groupW = scale * (1 + CD_PEEK) * w;
+  // Cả bìa + đĩa cùng dịch sang trái: mặc định cụm bìa+đĩa cân giữa chỗ cũ,
+  // nếu đĩa vẫn chạm player thì lùi tiếp sang trái (tận dụng chỗ trống bên trái).
+  const groupLeft = Math.max(leftBound,
+    Math.min(d.left - (groupW - scale * w) / 2, rightBound - groupW));
+  const cdRight = groupLeft + groupW;
+  const cdCenter = cdRight - 0.47 * scale * w;
+  coverDiscEl.style.setProperty('--sleeve-x', (groupLeft - d.left).toFixed(1) + 'px');
+  coverDiscEl.style.setProperty('--sleeve-s', scale.toFixed(3));
+  coverDiscEl.style.setProperty('--cd-x', (cdCenter - (d.left + w / 2)).toFixed(1) + 'px');
+  coverDiscEl.style.setProperty('--cd-s', (0.94 * scale).toFixed(3));
+}
+coverDiscEl.addEventListener('pointerenter', layoutCdPeek);
+window.addEventListener('resize', layoutCdPeek);
+layoutCdPeek();
 
 // ---------- Bìa <-> đĩa ----------
 let cdTimer = 0, cdReady = false;
