@@ -283,47 +283,78 @@
   .cover-disc.spin-blur .cover-sheen { opacity: 1; }
   /* Vùng giữa đĩa giống CD thật (tính theo bán kính đĩa):
        0–12.5%  : lỗ thủng, nhìn xuyên qua thấy nền phía sau
-       12.5–28% : vành nhựa trong suốt, hơi mờ, có gờ xếp chồng ở ~26%
-       28–36%   : dải bạc ánh kim (mặt gương của đĩa, chưa in hình)
+       12.5–28% : vành nhựa trong gần như vô hình, chỉ nhận ra nhờ ánh sáng ở mép
+       28–36%   : dải gương bạc (chưa in hình): phản chiếu tối/sáng theo hướng đèn
        từ 36%   : phần in hình (ảnh CD.webp)
-     Lớp này đứng yên, không xoay theo đĩa: vành tròn đều nên xoay hay không nhìn
-     như nhau, còn ánh phản chiếu trên dải bạc thì phải đứng yên như dưới đèn thật. */
+     Đèn giả định chiếu từ phía trên bên trái: mép nào quay về phía đèn thì sáng,
+     phía ngược lại thì tối — mắt nhận ra độ nổi nhờ chính sự lệch sáng này.
+     Lớp này đứng yên, không xoay theo đĩa (ánh đèn thật cũng đứng yên). */
   .cd-hub {
     position: absolute;
     inset: 0;
     border-radius: 50%;
     pointer-events: none;
-    background:
-      radial-gradient(circle closest-side at center,
-        transparent 0 12.2%,
-        rgba(255,255,255,0.55) 12.5%, rgba(0,0,0,0.22) 13.1%, transparent 13.6%,
-        transparent 15.6%, rgba(255,255,255,0.18) 16%, transparent 16.5%,
-        transparent 25.4%, rgba(255,255,255,0.45) 25.9%, rgba(0,0,0,0.18) 26.6%, transparent 27.2%,
-        transparent 27.8%, rgba(0,0,0,0.20) 28.1%, transparent 28.5%,
-        transparent 35.6%, rgba(0,0,0,0.22) 36%, transparent 36.5%),
-      radial-gradient(circle closest-side at center,
-        transparent 0 12.5%, rgba(255,255,255,0.14) 12.6% 28%, transparent 28.1%);
-    backdrop-filter: blur(3px) saturate(1.15);
-    -webkit-backdrop-filter: blur(3px) saturate(1.15);
-    mask-image: radial-gradient(circle closest-side at center, transparent 0 12.5%, #000 12.7% 36.2%, transparent 36.5%);
-    -webkit-mask-image: radial-gradient(circle closest-side at center, transparent 0 12.5%, #000 12.7% 36.2%, transparent 36.5%);
+    /* nhựa trong: chỉ hơi sáng lên một chút, gần như nhìn xuyên hoàn toàn */
+    background: radial-gradient(circle closest-side at center,
+      transparent 0 12.5%, rgba(255,255,255,0.07) 12.6% 28%, transparent 28.1%);
+    backdrop-filter: blur(0.6px) brightness(1.05);
+    -webkit-backdrop-filter: blur(0.6px) brightness(1.05);
+    mask-image: radial-gradient(circle closest-side at center, transparent 0 12.5%, #000 12.6% 36.2%, transparent 36.4%);
+    -webkit-mask-image: radial-gradient(circle closest-side at center, transparent 0 12.5%, #000 12.6% 36.2%, transparent 36.4%);
   }
-  /* Dải bạc ánh kim + chút cầu vồng như mặt gương CD */
+  /* Dải gương bạc: nền xám kim loại, 2 vệt sáng đối xứng hướng về phía đèn (hình nơ),
+     viền trong/ngoài tối hơn một chút cho có cảm giác dày */
   .cd-hub::before {
     content: "";
     position: absolute;
     inset: 0;
     border-radius: 50%;
     background:
-      conic-gradient(from 200deg,
-        rgba(255,120,200,0.22), rgba(120,200,255,0.22), rgba(170,255,170,0.18),
-        rgba(255,230,120,0.22), rgba(255,120,200,0.22), rgba(120,200,255,0.22),
-        rgba(170,255,170,0.18), rgba(255,230,120,0.22), rgba(255,120,200,0.22)),
-      conic-gradient(from 30deg,
-        #c9ced6, #f7f8fa 12%, #aeb4be 25%, #eef0f3 38%, #c3c8d0 50%,
-        #f8f9fb 62%, #b2b8c2 75%, #e9ecf0 88%, #c9ced6);
-    mask-image: radial-gradient(circle closest-side at center, transparent 0 28.2%, #000 28.6% 35.8%, transparent 36.1%);
-    -webkit-mask-image: radial-gradient(circle closest-side at center, transparent 0 28.2%, #000 28.6% 35.8%, transparent 36.1%);
+      radial-gradient(circle closest-side at center,
+        transparent 0 28%, rgba(0,0,0,0.12) 28.2%, transparent 29%,
+        transparent 35.2%, rgba(0,0,0,0.10) 35.9%, transparent 36.2%),
+      conic-gradient(from 0deg,
+        #c9cdd3 0deg, #b9bec5 45deg, #cfd3d8 100deg,
+        #eef0f2 124deg, #ffffff 135deg, #eef0f2 146deg,
+        #cdd1d6 172deg, #b4b9c0 225deg, #c6cad0 280deg,
+        #eceef1 304deg, #ffffff 315deg, #eceef1 326deg, #c9cdd3 360deg);
+    opacity: 0.88; /* gương phản chiếu: để lộ chút màu nền xung quanh */
+    mask-image: radial-gradient(circle closest-side at center, transparent 0 28%, #000 28.15% 36%, transparent 36.15%);
+    -webkit-mask-image: radial-gradient(circle closest-side at center, transparent 0 28%, #000 28.15% 36%, transparent 36.15%);
+  }
+  /* Ánh sáng ở mép: mép lỗ, gờ xếp chồng (~26%) và mép nhựa (~28%).
+     Sáng ở phía trên-trái (hướng đèn), tối ở phía dưới-phải. */
+  .cd-hub::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg,
+      rgba(255,255,255,0.20) 0deg, rgba(0,0,0,0.28) 135deg,
+      rgba(255,255,255,0.20) 225deg, rgba(255,255,255,0.85) 315deg,
+      rgba(255,255,255,0.20) 360deg);
+    mask-image: radial-gradient(circle closest-side at center,
+      transparent 0 12.4%, #000 12.6% 13.1%, transparent 13.4%,
+      transparent 25.6%, rgba(0,0,0,0.7) 25.9% 26.5%, transparent 26.8%,
+      transparent 27.6%, #000 27.8% 28%, transparent 28.1%);
+    -webkit-mask-image: radial-gradient(circle closest-side at center,
+      transparent 0 12.4%, #000 12.6% 13.1%, transparent 13.4%,
+      transparent 25.6%, rgba(0,0,0,0.7) 25.9% 26.5%, transparent 26.8%,
+      transparent 27.6%, #000 27.8% 28%, transparent 28.1%);
+  }
+  /* Mép ngoài đĩa: một vệt nhựa mảnh bắt sáng, như cạnh đĩa thật */
+  .cd::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    pointer-events: none;
+    background: conic-gradient(from 0deg,
+      rgba(255,255,255,0.25) 0deg, rgba(0,0,0,0.25) 135deg,
+      rgba(255,255,255,0.25) 225deg, rgba(255,255,255,0.8) 315deg,
+      rgba(255,255,255,0.25) 360deg);
+    mask-image: radial-gradient(circle closest-side at center, transparent 0 98.6%, #000 99.1% 99.8%, transparent 100%);
+    -webkit-mask-image: radial-gradient(circle closest-side at center, transparent 0 98.6%, #000 99.1% 99.8%, transparent 100%);
   }
   /* Desktop (có chuột): rê vào bìa -> đĩa ló ra. Điện thoại không có hiệu ứng này.
      Vị trí/độ thu nhỏ do JS tính (--sleeve-x, --sleeve-s, --cd-x, --cd-s) để đĩa
