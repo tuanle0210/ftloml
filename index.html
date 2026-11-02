@@ -2870,7 +2870,7 @@ const cdEl = coverDiscEl.querySelector('.cd');
 const cdSpin = coverDiscEl.querySelector('.cd-spin');
 const SPIN_MAX = 360 / (SPIN_SECONDS_PER_TURN * 1000); // độ mỗi mili-giây
 const SPIN_UP_MS = 1000;   // thời gian tăng tốc từ đứng yên tới tốc độ tối đa
-const SPIN_DOWN_MS = 700;  // thời gian giảm tốc tới khi dừng
+const SPIN_DOWN_MS = 1500; // thời gian giảm tốc tới khi dừng hẳn (lúc pause)
 let spinAngle = 0, spinSpeed = 0, spinTarget = 0, spinRAF = 0, spinLast = 0;
 
 function spinTick(now) {
@@ -2886,7 +2886,7 @@ function spinTick(now) {
   const k = spinSpeed / SPIN_MAX;
   const t = Math.min(Math.max((k - 0.2) / 0.6, 0), 1);
   coverBlur.style.opacity = spinBlurReady ? (t * t * (3 - 2 * t)).toFixed(3) : '0';
-  if (spinSpeed === 0 && spinTarget === 0) { spinRAF = 0; spinLast = 0; return; }
+  if (spinSpeed === 0 && spinTarget === 0) { spinRAF = 0; spinLast = 0; onSpinStopped(); return; }
   spinRAF = requestAnimationFrame(spinTick);
 }
 function setSpinTarget(on) {
@@ -2935,10 +2935,23 @@ window.addEventListener('resize', layoutCdPeek);
 layoutCdPeek();
 
 // ---------- Bìa <-> đĩa ----------
-let cdTimer = 0, cdReady = false;
+let cdTimer = 0, cdReady = false, hideAfterStop = false;
+// Pause: đĩa giảm tốc tới khi dừng hẳn, nghỉ một nhịp rồi mới thụt vào bìa
+const CD_REST_MS = 300;
+function onSpinStopped() {
+  if (!hideAfterStop) return;
+  hideAfterStop = false;
+  clearTimeout(cdTimer);
+  cdTimer = setTimeout(hideCd, CD_REST_MS);
+}
 // Bìa trượt đi, đĩa ra giữa; đĩa tới giữa rồi mới bắt đầu quay (nếu nhạc đã chạy)
 function showCd() {
-  if (coverDiscEl.classList.contains('cd-out')) return;
+  hideAfterStop = false;              // đang chờ cất đĩa mà bấm phát lại -> thôi không cất
+  if (coverDiscEl.classList.contains('cd-out')) {
+    clearTimeout(cdTimer);
+    cdReady = true;
+    return;
+  }
   coverDiscEl.classList.add('cd-out');
   cdReady = false;
   clearTimeout(cdTimer);
@@ -2959,7 +2972,8 @@ function setCoverSpinning(isPlaying) {
     if (cdReady) setSpinTarget(true);
   } else {
     setSpinTarget(false);
-    hideCd();
+    if (spinSpeed > 0 && cdReady) hideAfterStop = true; // chờ đĩa dừng hẳn rồi mới cất
+    else hideCd();                                      // đĩa chưa kịp quay -> cất luôn
   }
 }
 
@@ -2973,9 +2987,11 @@ coverImg.addEventListener('click', playFromCover);
 coverImg.addEventListener('keydown', e => {
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); playFromCover(); }
 });
-// Bấm vào đĩa đang quay: tạm dừng (bìa trở lại)
+// Bấm vào đĩa: đang quay thì tạm dừng; đang giảm tốc chưa kịp cất thì phát tiếp
 cdEl.addEventListener('click', () => {
-  if (coverDiscEl.classList.contains('cd-out') && !audio.paused) audio.pause();
+  if (!coverDiscEl.classList.contains('cd-out')) return;
+  if (!audio.paused) audio.pause();
+  else if (!isLocked) safePlay();
 });
 
 // Gọi play() kèm xử lý lỗi: nếu không phát được (mất mạng, lỗi file...) thì trả nút về Play
