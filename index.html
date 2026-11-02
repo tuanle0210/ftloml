@@ -200,7 +200,7 @@
     border-radius: 20px;
     box-shadow: 0 12px 30px rgba(0,0,0,0.25);
     display: block;
-    animation: cover-spin 1.6s linear infinite;
+    animation: cover-spin 0.7s linear infinite;
     animation-play-state: paused;
     transition: border-radius 0.4s ease;
   }
@@ -214,9 +214,42 @@
     mask-image: radial-gradient(circle closest-side at center, black 0%, black 13%, white 14%, white 100%);
     -webkit-mask-image: radial-gradient(circle closest-side at center, black 0%, black 13%, white 14%, white 100%);
   }
-  /* Lớp "đĩa đang quay tít": ảnh bìa đã được JS tính trung bình màu theo từng vòng
-     tròn đồng tâm — đúng thứ mắt nhìn thấy khi một cái đĩa thật quay quá nhanh.
-     Vì ảnh này đối xứng tròn nên không cần xoay, không bao giờ bị giật/chóng mặt. */
+  /* ===== Bìa album + đĩa CD =====
+     Lúc vào trang: chỉ thấy bìa vuông, đĩa giấu kín phía sau.
+     Desktop rê chuột vào bìa: bìa lùi sang trái, đĩa ló ra bên phải.
+     Bấm vào bìa (hoặc nút Play): .cd-out = bìa trượt hẳn sang trái và mờ đi,
+     đĩa ra giữa, JS cho đĩa tăng tốc quay + nhòe dần, đồng thời phát nhạc. */
+  body { overflow-x: clip; } /* đĩa/bìa trượt ra mép không làm trang bị cuộn ngang */
+  .cover-disc .cover-sleeve {
+    position: relative;
+    z-index: 2;
+    animation: none;
+    cursor: pointer;
+    transition: opacity 0.6s ease, transform 0.7s cubic-bezier(0.22, 0.8, 0.3, 1);
+  }
+  .cd {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    opacity: 0;
+    transform: scale(0.94);
+    transition: transform 0.7s cubic-bezier(0.22, 0.8, 0.3, 1), opacity 0.25s ease;
+  }
+  /* Phần xoay của đĩa (ảnh + lớp nhòe). JS xoay bằng requestAnimationFrame */
+  .cd-spin {
+    position: absolute;
+    inset: 0;
+    will-change: transform;
+  }
+  .cover-disc .cd .cd-img {
+    animation: none;
+    border-radius: 50%;
+    box-shadow: 0 10px 28px rgba(0,0,0,0.35);
+    mask-image: radial-gradient(circle closest-side at center, black 0%, black 13%, white 14%, white 100%);
+    -webkit-mask-image: radial-gradient(circle closest-side at center, black 0%, black 13%, white 14%, white 100%);
+  }
+  /* Ảnh đĩa đã được JS làm nhòe theo chiều quay; độ hiện (opacity) do JS chỉnh
+     theo tốc độ quay: quay càng nhanh càng nhòe. */
   .cover-blur {
     position: absolute;
     inset: 0;
@@ -226,23 +259,50 @@
     mask-image: radial-gradient(circle closest-side at center, black 0%, black 13%, white 14%, white 100%);
     -webkit-mask-image: radial-gradient(circle closest-side at center, black 0%, black 13%, white 14%, white 100%);
     opacity: 0;
-    transition: opacity 0.3s ease;
     pointer-events: none;
   }
-  /* Vệt phản chiếu ánh sáng đứng yên trên mặt đĩa, như CD thật dưới đèn */
-  .cover-blur::after {
-    content: "";
+  /* Vệt sáng phản chiếu + rãnh mảnh, đứng yên trên mặt đĩa như CD thật dưới đèn */
+  .cover-sheen {
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    background: conic-gradient(from 20deg,
-      transparent 0deg, rgba(255,255,255,0.16) 30deg, transparent 70deg,
-      transparent 180deg, rgba(255,255,255,0.10) 210deg, transparent 250deg);
+    pointer-events: none;
+    background:
+      conic-gradient(from 25deg,
+        transparent 0deg, rgba(255,255,255,0.22) 28deg, transparent 62deg,
+        transparent 180deg, rgba(255,255,255,0.14) 208deg, transparent 242deg),
+      repeating-radial-gradient(circle at center,
+        rgba(255,255,255,0.05) 0 1px, transparent 1px 3px);
+    mix-blend-mode: soft-light;
+    mask-image: radial-gradient(circle closest-side at center, black 0%, black 13%, white 14%, white 100%);
+    -webkit-mask-image: radial-gradient(circle closest-side at center, black 0%, black 13%, white 14%, white 100%);
+    opacity: 0;
+    transition: opacity 0.6s ease;
   }
-  /* Bắt đầu phát: đĩa quay chậm vài nhịp rồi "nhòe" dần thành các vòng màu */
-  .cover-disc.spin-blur .cover-blur {
+  .cover-disc.spin-blur .cover-sheen { opacity: 1; }
+  .cd .cover-ring,
+  .cd .cover-hole {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  /* Desktop (có chuột): rê vào bìa -> đĩa ló ra. Điện thoại không có hiệu ứng này */
+  @media (hover: hover) and (pointer: fine) {
+    .cover-disc:not(.cd-out):hover .cover-sleeve { transform: translateX(-14%); }
+    .cover-disc:not(.cd-out):hover .cd { opacity: 1; transform: translateX(32%) scale(0.94); }
+  }
+  /* Đã bấm vào bìa: bìa tuột hẳn sang trái + mờ đi, đĩa ra giữa */
+  .cover-disc.cd-out .cover-sleeve {
+    opacity: 0;
+    transform: translateX(-80%) scale(0.9);
+    pointer-events: none;
+  }
+  .cover-disc.cd-out .cd {
     opacity: 1;
-    transition: opacity 0.8s ease-in 0.2s;
+    transform: none;
+    cursor: pointer;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cover-disc .cover-sleeve, .cd { transition: opacity 0.3s ease; }
+    .cover-disc.cd-out .cover-sleeve { transform: none; }
   }
   /* Vòng nhẫn kẹp đĩa — nằm giữa lỗ khoét thật và mặt đĩa, làm mờ (blur) đúng phần
      ảnh bìa nó đè lên, giả lập lớp nhựa mờ quanh lỗ CD thật. Bản thân vòng nhẫn
@@ -304,7 +364,7 @@
       animation: none;
       filter: none;
     }
-    .cover-blur { display: none; }
+    .cover-sheen { display: none; }
   }
 
   @keyframes cover-spin {
@@ -1269,10 +1329,18 @@
 
   <div class="cover-wrap">
     <div class="cover-disc">
-      <img id="cover-img" src="assets/cover.jpg" fetchpriority="high" alt="">
-      <div class="cover-blur"></div>
-      <div class="cover-ring"></div>
-      <div class="cover-hole"></div>
+      <!-- Đĩa CD: nằm sau bìa, trượt ra khi bấm Play. Đổi ảnh đĩa ở src dưới đây -->
+      <div class="cd">
+        <div class="cd-spin">
+          <img id="cd-img" class="cd-img" src="assets/CD.webp" alt="">
+          <div class="cover-blur"></div>
+        </div>
+        <div class="cover-sheen"></div>
+        <div class="cover-ring"></div>
+        <div class="cover-hole"></div>
+      </div>
+      <!-- Bìa album: bấm vào để phát -->
+      <img id="cover-img" class="cover-sleeve" src="assets/cover.jpg" fetchpriority="high" alt="" role="button" tabindex="0" aria-label="Phát album">
     </div>
   </div>
 
@@ -2584,78 +2652,213 @@ new Image().src = 'assets/icons/pause.svg'; // tải sẵn icon Pause
 
 const coverImg = document.getElementById('cover-img');
 const coverDiscEl = coverImg.parentElement;
+const cdImg = document.getElementById('cd-img');
 const coverBlur = coverDiscEl.querySelector('.cover-blur');
 let spinBlurReady = false;
 
-// Tạo ảnh "đĩa đang quay tít": lấy trung bình màu của ảnh bìa trên từng vòng tròn
-// đồng tâm (giống mắt người nhìn đĩa quay quá nhanh), rồi dùng làm nền cho .cover-blur.
+// Độ nhòe theo chiều quay (độ). Càng lớn càng "tít", hình bìa càng khó nhận ra.
+// 360 = nhòe hoàn toàn thành các vòng màu.
+const SPIN_BLUR_DEG = 90;
+// Tốc độ quay tối đa: số giây cho 1 vòng (CD thật khoảng 0.12–0.3 giây/vòng)
+const SPIN_SECONDS_PER_TURN = 0.3;
+// Nhuộm đĩa nhòe theo màu chủ đạo của ảnh đĩa (0 = giữ nguyên màu, 1 = nhuộm hết).
+// Không có bước này thì các mảng trắng trong ảnh làm cả đĩa bị bạc, nhạt màu.
+const SPIN_TINT_MIX = 0.7;
+const SPIN_SATURATE = 1.1;
+
+// Tạo ảnh "đĩa đang quay": làm nhòe ảnh bìa theo vòng cung quanh tâm (motion blur xoay),
+// gần tâm nhòe ít, ra mép nhòe nhiều — đúng như đĩa thật đang quay.
 function buildSpinBlur() {
   try {
-    const N = 256, R = N / 2;
+    const dpr = window.devicePixelRatio || 1;
+    const N = Math.max(256, Math.min(1024, Math.round((coverDiscEl.offsetWidth || 400) * dpr)));
+    const R = N / 2;
     const c = document.createElement('canvas');
     c.width = c.height = N;
     const ctx = c.getContext('2d', { willReadFrequently: true });
-    const iw = coverImg.naturalWidth, ih = coverImg.naturalHeight, side = Math.min(iw, ih);
-    ctx.drawImage(coverImg, (iw - side) / 2, (ih - side) / 2, side, side, 0, 0, N, N);
+    const iw = cdImg.naturalWidth, ih = cdImg.naturalHeight, side = Math.min(iw, ih);
+    ctx.drawImage(cdImg, (iw - side) / 2, (ih - side) / 2, side, side, 0, 0, N, N);
     const src = ctx.getImageData(0, 0, N, N).data;
 
-    // Cộng dồn màu theo bán kính (bình phương để trộn màu gần đúng như ánh sáng thật)
-    const sum = new Float64Array(R * 3), cnt = new Uint32Array(R);
-    for (let y = 0; y < N; y++) {
-      for (let x = 0; x < N; x++) {
-        const b = Math.floor(Math.hypot(x + 0.5 - R, y + 0.5 - R));
-        if (b >= R) continue;
-        const i = (y * N + x) * 4;
-        sum[b * 3]     += src[i] * src[i];
-        sum[b * 3 + 1] += src[i + 1] * src[i + 1];
-        sum[b * 3 + 2] += src[i + 2] * src[i + 2];
-        cnt[b]++;
+    // Tìm màu chủ đạo của ảnh đĩa: chia các pixel đậm màu theo sắc độ (hue),
+    // lấy nhóm đông nhất rồi tính trung bình nửa tối hơn của nhóm đó.
+    // (Với ảnh tông đỏ như bìa album thì ra màu đỏ thẫm.)
+    const groups = Array.from({ length: 12 }, () => []);
+    for (let i = 0; i < src.length; i += 16) {
+      const r = src[i], g = src[i + 1], b = src[i + 2];
+      const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+      if (mx - mn < 60) continue; // bỏ qua màu xám/trắng/đen
+      let h = mx === r ? (g - b) / (mx - mn) : mx === g ? 2 + (b - r) / (mx - mn) : 4 + (r - g) / (mx - mn);
+      h = ((h * 60) + 360) % 360;
+      groups[Math.floor(h / 30) % 12].push(i);
+    }
+    const main = groups.reduce((x, y) => (y.length > x.length ? y : x));
+    main.sort((a, b) => (src[a] + src[a + 1] + src[a + 2]) - (src[b] + src[b + 1] + src[b + 2]));
+    const half = main.slice(0, Math.max(1, main.length >> 1));
+    const tint = [0, 1, 2].map(k => main.length
+      ? half.reduce((sum, i) => sum + src[i + k], 0) / half.length / 255 * 1.1
+      : 1);
+
+    // 1) Chuyển ảnh sang toạ độ cực: mỗi hàng = một vòng tròn bán kính r
+    const A = 1440, RR = Math.ceil(R);
+    const cosT = new Float32Array(A), sinT = new Float32Array(A);
+    for (let a = 0; a < A; a++) { cosT[a] = Math.cos(a / A * 2 * Math.PI); sinT[a] = Math.sin(a / A * 2 * Math.PI); }
+    const polar = new Float32Array(RR * A * 3);
+    for (let ri = 0; ri < RR; ri++) {
+      const r = ri + 0.5;
+      for (let a = 0; a < A; a++) {
+        let x = R + r * cosT[a] - 0.5, y = R + r * sinT[a] - 0.5;
+        x = Math.min(Math.max(x, 0), N - 1.001); y = Math.min(Math.max(y, 0), N - 1.001);
+        const x0 = x | 0, y0 = y | 0, fx = x - x0, fy = y - y0;
+        const i00 = (y0 * N + x0) * 4, i10 = i00 + 4, i01 = i00 + N * 4, i11 = i01 + 4;
+        const p = (ri * A + a) * 3;
+        for (let k = 0; k < 3; k++) {
+          const v = (src[i00 + k] * (1 - fx) + src[i10 + k] * fx) * (1 - fy) +
+                    (src[i01 + k] * (1 - fx) + src[i11 + k] * fx) * fy;
+          polar[p + k] = v;
+        }
       }
     }
-    for (let b = 0; b < R; b++) {
-      const n = cnt[b] || 1;
-      sum[b * 3] /= n; sum[b * 3 + 1] /= n; sum[b * 3 + 2] /= n;
+
+    // 2) Nhòe dọc theo mỗi vòng tròn (box blur vòng 2 lần ≈ nhòe tam giác, mềm hơn)
+    const W = Math.max(1, Math.round(A * SPIN_BLUR_DEG / 360 / 2));
+    const row = new Float32Array(A), pre = new Float64Array(A + 1);
+    for (let ri = 0; ri < RR; ri++) {
+      for (let k = 0; k < 3; k++) {
+        for (let a = 0; a < A; a++) row[a] = polar[(ri * A + a) * 3 + k];
+        for (let pass = 0; pass < 2; pass++) {
+          pre[0] = 0;
+          for (let a = 0; a < A; a++) pre[a + 1] = pre[a] + row[a];
+          const total = pre[A], win = Math.min(W, (A >> 1) - 1);
+          for (let a = 0; a < A; a++) {
+            const lo = a - win, hi = a + win + 1;
+            let sum;
+            if (lo < 0) sum = pre[hi] + (total - pre[A + lo]);
+            else if (hi > A) sum = (total - pre[lo]) + pre[hi - A];
+            else sum = pre[hi] - pre[lo];
+            row[a] = sum / (2 * win + 1);
+          }
+        }
+        for (let a = 0; a < A; a++) polar[(ri * A + a) * 3 + k] = row[a];
+      }
     }
 
-    // Vẽ lại thành các vòng tròn đồng tâm, nội suy giữa 2 vòng cho mịn
+    // 3) Chuyển ngược về ảnh vuông
     const out = ctx.createImageData(N, N), o = out.data;
     for (let y = 0; y < N; y++) {
       for (let x = 0; x < N; x++) {
-        const r = Math.min(Math.max(Math.hypot(x + 0.5 - R, y + 0.5 - R) - 0.5, 0), R - 1);
-        const b0 = Math.floor(r), b1 = Math.min(b0 + 1, R - 1), t = r - b0;
+        const dx = x + 0.5 - R, dy = y + 0.5 - R;
+        const r = Math.min(Math.max(Math.hypot(dx, dy) - 0.5, 0), RR - 1.001);
+        let t = Math.atan2(dy, dx) / (2 * Math.PI) * A; if (t < 0) t += A;
+        const r0 = r | 0, fr = r - r0, a0 = (t | 0) % A, a1 = (a0 + 1) % A, fa = t - Math.floor(t);
+        const r1 = Math.min(r0 + 1, RR - 1);
         const i = (y * N + x) * 4;
+        const col = [0, 0, 0];
         for (let k = 0; k < 3; k++) {
-          o[i + k] = Math.sqrt(sum[b0 * 3 + k] * (1 - t) + sum[b1 * 3 + k] * t);
+          const v = (polar[(r0 * A + a0) * 3 + k] * (1 - fa) + polar[(r0 * A + a1) * 3 + k] * fa) * (1 - fr) +
+                    (polar[(r1 * A + a0) * 3 + k] * (1 - fa) + polar[(r1 * A + a1) * 3 + k] * fa) * fr;
+          col[k] = v + (v * tint[k] - v) * SPIN_TINT_MIX; // nhuộm đỏ theo ảnh gốc
         }
+        const lum = 0.299 * col[0] + 0.587 * col[1] + 0.114 * col[2];
+        for (let k = 0; k < 3; k++) o[i + k] = lum + (col[k] - lum) * SPIN_SATURATE;
         o[i + 3] = 255;
       }
     }
     ctx.putImageData(out, 0, 0);
     coverBlur.style.backgroundImage = 'url(' + c.toDataURL('image/jpeg', 0.92) + ')';
     spinBlurReady = true;
-    if (coverImg.classList.contains('spinning')) coverDiscEl.classList.add('spin-blur');
   } catch (e) {
-    // Mở file trực tiếp (file://) có thể bị trình duyệt chặn đọc pixel -> chỉ quay chậm, không nhòe
+    // Mở file trực tiếp (file://) có thể bị trình duyệt chặn đọc pixel -> chỉ quay, không nhòe
     spinBlurReady = false;
   }
 }
-if (coverImg.complete && coverImg.naturalWidth) buildSpinBlur();
-else coverImg.addEventListener('load', buildSpinBlur, { once: true });
+// Thiếu ảnh đĩa (assets/CD.webp) -> tạm dùng ảnh bìa làm mặt đĩa
+function useCoverAsCd() {
+  if (cdImg.src !== coverImg.src) cdImg.src = coverImg.src;
+}
+cdImg.addEventListener('error', useCoverAsCd);
+cdImg.addEventListener('load', buildSpinBlur);
+if (cdImg.complete) {
+  if (cdImg.naturalWidth) buildSpinBlur(); else useCoverAsCd();
+}
 
-function setCoverSpinning(isPlaying) {
-  coverDiscEl.classList.toggle('spin-blur', isPlaying && spinBlurReady);
-  if (isPlaying) {
-    coverImg.classList.add('spinning');
-    coverImg.style.animationPlayState = 'running';
-  } else {
-    coverImg.classList.remove('spinning');
-    // Reset animation để lần play tiếp theo luôn bắt đầu lại từ góc 0 độ,
-    // tránh dừng lại giữa chừng lúc hình đã trở về vuông (nhìn sẽ bị lệch).
-    coverImg.style.animation = 'none';
-    void coverImg.offsetWidth;
-    coverImg.style.animation = '';
+// ---------- Quay đĩa: tăng tốc / giảm tốc mượt như đầu đọc CD ----------
+const reduceMotionMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
+const cdEl = coverDiscEl.querySelector('.cd');
+const cdSpin = coverDiscEl.querySelector('.cd-spin');
+const SPIN_MAX = 360 / (SPIN_SECONDS_PER_TURN * 1000); // độ mỗi mili-giây
+const SPIN_UP_MS = 1000;   // thời gian tăng tốc từ đứng yên tới tốc độ tối đa
+const SPIN_DOWN_MS = 700;  // thời gian giảm tốc tới khi dừng
+let spinAngle = 0, spinSpeed = 0, spinTarget = 0, spinRAF = 0, spinLast = 0;
+
+function spinTick(now) {
+  const dt = spinLast ? Math.min(50, now - spinLast) : 0;
+  spinLast = now;
+  const rate = SPIN_MAX / (spinTarget > spinSpeed ? SPIN_UP_MS : SPIN_DOWN_MS);
+  spinSpeed = spinTarget > spinSpeed
+    ? Math.min(spinTarget, spinSpeed + rate * dt)
+    : Math.max(spinTarget, spinSpeed - rate * dt);
+  spinAngle = (spinAngle + spinSpeed * dt) % 360;
+  cdSpin.style.transform = 'rotate(' + spinAngle.toFixed(2) + 'deg)';
+  // Quay chậm: thấy rõ ảnh đĩa. Quay nhanh: lớp nhòe hiện dần, che bước nhảy giữa các khung hình
+  const k = spinSpeed / SPIN_MAX;
+  const t = Math.min(Math.max((k - 0.2) / 0.6, 0), 1);
+  coverBlur.style.opacity = spinBlurReady ? (t * t * (3 - 2 * t)).toFixed(3) : '0';
+  if (spinSpeed === 0 && spinTarget === 0) { spinRAF = 0; spinLast = 0; return; }
+  spinRAF = requestAnimationFrame(spinTick);
+}
+function setSpinTarget(on) {
+  spinTarget = on && !reduceMotionMQ.matches ? SPIN_MAX : 0;
+  coverDiscEl.classList.toggle('spin-blur', spinTarget > 0);
+  if (!spinRAF && (spinTarget > 0 || spinSpeed > 0)) {
+    spinLast = 0;
+    spinRAF = requestAnimationFrame(spinTick);
   }
 }
+
+// ---------- Bìa <-> đĩa ----------
+let cdTimer = 0, cdReady = false;
+// Bìa trượt đi, đĩa ra giữa; đĩa tới giữa rồi mới bắt đầu quay (nếu nhạc đã chạy)
+function showCd() {
+  if (coverDiscEl.classList.contains('cd-out')) return;
+  coverDiscEl.classList.add('cd-out');
+  cdReady = false;
+  clearTimeout(cdTimer);
+  cdTimer = setTimeout(() => {
+    cdReady = true;
+    if (!audio.paused && audio.readyState >= 3) setSpinTarget(true);
+  }, reduceMotionMQ.matches ? 300 : 700);
+}
+function hideCd() {
+  clearTimeout(cdTimer);
+  cdReady = false;
+  coverDiscEl.classList.remove('cd-out');
+}
+
+function setCoverSpinning(isPlaying) {
+  if (isPlaying) {
+    showCd();
+    if (cdReady) setSpinTarget(true);
+  } else {
+    setSpinTarget(false);
+    hideCd();
+  }
+}
+
+// Bấm vào bìa (desktop + điện thoại): đĩa ra giữa và phát album
+function playFromCover() {
+  if (isLocked) return; // chưa tới giờ phát hành
+  showCd();
+  if (audio.paused) safePlay();
+}
+coverImg.addEventListener('click', playFromCover);
+coverImg.addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); playFromCover(); }
+});
+// Bấm vào đĩa đang quay: tạm dừng (bìa trở lại)
+cdEl.addEventListener('click', () => {
+  if (coverDiscEl.classList.contains('cd-out') && !audio.paused) audio.pause();
+});
 
 // Gọi play() kèm xử lý lỗi: nếu không phát được (mất mạng, lỗi file...) thì trả nút về Play
 function safePlay() {
@@ -2681,6 +2884,7 @@ btnPlay.addEventListener('click', () => {
 });
 audio.addEventListener('play', () => {
   setPlayIcon(true);
+  showCd(); // bấm nút Play cũng cho đĩa ra giữa ngay
   startSoundwave();
   updateTabTitle();
   if (audio.readyState < 3) btnPlay.classList.add('loading'); // chưa đủ dữ liệu -> nhấp nháy
@@ -2695,8 +2899,7 @@ audio.addEventListener('waiting', () => {
   btnPlay.classList.add('loading');
   // Đang tải nhạc (vd. vừa nhảy bài) -> chỉ tạm dừng quay, giữ nguyên hình đĩa tròn.
   // (Trước đây đĩa bị biến về hình vuông rồi lại tròn mỗi lần nhảy bài.)
-  coverImg.style.animationPlayState = 'paused';
-  coverDiscEl.classList.remove('spin-blur'); // đĩa đứng yên -> hiện lại ảnh bìa rõ nét
+  setSpinTarget(false); // đang tải nhạc -> đĩa giảm tốc, chờ có tiếng lại quay tiếp
 });
 audio.addEventListener('error', () => {
   btnPlay.classList.remove('loading');
